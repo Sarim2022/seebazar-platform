@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.TransparentSplash" parent="Theme.Seebazar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.Seebazar" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--
+      Cold start: same solid background as Compose splash, no visible icon.
+      postSplashScreenTheme switches to Theme.Seebazar after the system splash layer is done.
+    -->
+    <style name="Theme.Seebazar.Splash" parent="Theme.SplashScreen">
+        <item name="postSplashScreenTheme">@style/Theme.Seebazar</item>
+        <item name="windowSplashScreenBackground">@color/white</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_empty</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+</resources>

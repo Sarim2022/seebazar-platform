@@ -1,0 +1,397 @@
+package com.homeshop.seebazar.userhome
+
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.homeshop.seebazar.data.KartEntry
+import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.servicehome.VendorProduct
+import com.homeshop.seebazar.servicehome.VendorReservation
+import com.homeshop.seebazar.servicehome.VendorServiceItem
+import com.homeshop.seebazar.servicehome.VendorUi
+
+private val CallChatGreyBg = Color(0xFFE5E7EB)
+private val CallChatGreyFg = Color(0xFF374151)
+private val CallChatGreenBg = Color(0xFFDCFCE7)
+private val CallChatGreenFg = Color(0xFF166534)
+
+@Composable
+fun UserBrowseProductsPanel(
+    marketplace: MarketplaceData,
+    modifier: Modifier = Modifier,
+) {
+    val products = marketplace.productList
+    if (products.isEmpty()) {
+        EmptyBrowseMessage(
+            text = "No products listed yet.",
+            modifier = modifier,
+        )
+        return
+    }
+    val rows = products.chunked(2)
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(
+            count = rows.size,
+            key = { index -> rows[index].joinToString(separator = "-") { it.id.toString() } },
+        ) { index ->
+            val row = rows[index]
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                row.forEach { product ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        UserProductCard(
+                            product = product,
+                            onAddToCart = {
+                                marketplace.cartList.add(KartEntry.ProductInCart(product = product))
+                            },
+                        )
+                    }
+                }
+                if (row.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserBrowseReservationsPanel(
+    marketplace: MarketplaceData,
+    modifier: Modifier = Modifier,
+) {
+    val reservations = marketplace.reservationList
+    if (reservations.isEmpty()) {
+        EmptyBrowseMessage(
+            text = "No reservations available yet.",
+            modifier = modifier,
+        )
+        return
+    }
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(
+            reservations.size,
+            key = { index -> "res-$index-${reservations[index].venueName}" },
+        ) { index ->
+            val reservation = reservations[index]
+            UserReservationCard(
+                reservation = reservation,
+                onBook = {
+                    marketplace.cartList.add(KartEntry.BookingPending(reservation = reservation))
+                },
+            )
+        }
+    }
+}
+
+@Composable
+fun UserBrowseServicesPanel(
+    marketplace: MarketplaceData,
+    modifier: Modifier = Modifier,
+) {
+    val services = marketplace.serviceList
+    if (services.isEmpty()) {
+        EmptyBrowseMessage(
+            text = "No services listed yet.",
+            modifier = modifier,
+        )
+        return
+    }
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(
+            services.size,
+            key = { index -> "svc-$index-${services[index].serviceName}" },
+        ) { index ->
+            val service = services[index]
+            UserServiceCard(service = service)
+        }
+    }
+}
+
+@Composable
+private fun EmptyBrowseMessage(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        modifier = modifier.padding(vertical = 8.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        color = VendorUi.TextMuted,
+    )
+}
+
+@Composable
+private fun UserProductCard(
+    product: VendorProduct,
+    onAddToCart: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+        ) {
+            Text(
+                text = product.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = VendorUi.TextDark,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Brand: ${product.brand.ifBlank { "—" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = VendorUi.TextMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Price: ${product.price}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = VendorUi.TextDark,
+            )
+            Text(
+                text = "Unit: ${product.unit.ifBlank { "—" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = VendorUi.TextMuted,
+            )
+            if (product.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = product.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VendorUi.TextMuted,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Button(
+                onClick = onAddToCart,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("Add to Cart")
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserReservationCard(
+    reservation: VendorReservation,
+    onBook: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = reservation.venueName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = VendorUi.TextDark,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(VendorUi.ScreenBg, RoundedCornerShape(10.dp))
+                        .padding(10.dp),
+                ) {
+                    Text(
+                        text = "Date",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = VendorUi.TextMuted,
+                    )
+                    Text(
+                        text = reservation.date.ifBlank { "—" },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = VendorUi.BrandBlue,
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(VendorUi.ScreenBg, RoundedCornerShape(10.dp))
+                        .padding(10.dp),
+                ) {
+                    Text(
+                        text = "Time",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = VendorUi.TextMuted,
+                    )
+                    Text(
+                        text = reservation.timeSlot.ifBlank { "—" },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = VendorUi.BrandBlue,
+                    )
+                }
+            }
+            if (reservation.instructions.isNotBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = reservation.instructions,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VendorUi.TextDark,
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onBook,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("Book it")
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserServiceCard(
+    service: VendorServiceItem,
+) {
+    val context = LocalContext.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = service.serviceName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = VendorUi.TextDark,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Fixed price: ${service.priceFixed}",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = VendorUi.BrandBlue,
+            )
+            if (service.availability.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = service.availability,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VendorUi.TextMuted,
+                )
+            }
+            if (service.instruction.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = service.instruction,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VendorUi.TextMuted,
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = {
+                        Toast.makeText(context, "Call", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CallChatGreyBg,
+                        contentColor = CallChatGreyFg,
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Phone,
+                        contentDescription = "Call",
+                        modifier = Modifier.padding(end = 6.dp),
+                    )
+                    Text("Call")
+                }
+                Button(
+                    onClick = {
+                        Toast.makeText(context, "Chat", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CallChatGreenBg,
+                        contentColor = CallChatGreenFg,
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChatBubbleOutline,
+                        contentDescription = "Chat",
+                        modifier = Modifier.padding(end = 6.dp),
+                    )
+                    Text("Chat")
+                }
+            }
+        }
+    }
+}
