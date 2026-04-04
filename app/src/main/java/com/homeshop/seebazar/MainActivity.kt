@@ -20,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.homeshop.seebazar.forgot.SeebazarForgotScreen
 import com.homeshop.seebazar.servicehome.VendorHome
+import com.homeshop.seebazar.servicehome.smallcompose.ShopDetailsScreen
 import com.homeshop.seebazar.signup.SeebazarSignupScreen
 import com.homeshop.seebazar.ui.SeebazarLoginScreen
 import com.homeshop.seebazar.userhome.UserHome
@@ -36,7 +37,7 @@ class MainActivity : ComponentActivity() {
             splashScreenView.remove()
         }
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+//        enableEdgeToEdge()
         setContent {
             MaterialTheme {
                 Surface {
@@ -138,11 +139,21 @@ class MainActivity : ComponentActivity() {
                         composable("vendor_home") {
                             VendorHome(
                                 marketplace = marketplace,
+                                onNavigateToShopDetails = {
+                                    navController.navigate("shop_details")
+                                },
                                 onLogout = {
                                     navController.navigate("login") {
                                         popUpTo("vendor_home") { inclusive = true }
                                     }
                                 },
+                            )
+                        }
+                        composable("shop_details") {
+                            ShopDetailsScreen(
+                                shops = marketplace.shopList,
+                                shopIndex = 0,
+                                onBack = { navController.popBackStack() },
                             )
                         }
 

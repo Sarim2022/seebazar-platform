@@ -1,7 +1,12 @@
 package com.homeshop.seebazar.servicehome
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,6 +20,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,6 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.getValue
@@ -49,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -56,9 +64,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.homeshop.seebazar.R
 import com.homeshop.seebazar.data.MarketplaceData
-import com.homeshop.seebazar.servicehome.cardsfeature.MyProducts
-import com.homeshop.seebazar.servicehome.cardsfeature.MyReservation
-import com.homeshop.seebazar.servicehome.cardsfeature.MyServices
+import com.homeshop.seebazar.servicehome.cardsfeature.MyProductsScreen
+import com.homeshop.seebazar.servicehome.cardsfeature.MyReservationsScreen
+import com.homeshop.seebazar.servicehome.cardsfeature.MyServicesScreen
 import com.homeshop.seebazar.servicehome.cardsfeature.MyShop
 import com.homeshop.seebazar.servicehome.smallcompose.HomeCardsVendor
 import com.homeshop.seebazar.servicehome.smallcompose.HomeItemListView
@@ -72,6 +80,7 @@ import com.homeshop.seebazar.ui.LogoutConfirmationDialog
 @Composable
 fun VendorHome(
     marketplace: MarketplaceData,
+    onNavigateToShopDetails: () -> Unit = {},
     onLogout: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -90,16 +99,19 @@ fun VendorHome(
             else -> permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
-    var shopIsOpen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var openCardRoute by remember { mutableStateOf<VendorCardRoute?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showPostDialog by remember { mutableStateOf(false) }
+    var showAddProductDialog by remember { mutableStateOf(false) }
+    var productBeingEdited by remember { mutableStateOf<VendorProduct?>(null) }
 
-    BackHandler(enabled = showPostDialog || openCardRoute != null || showSettings) {
+    BackHandler(enabled = showAddProductDialog || openCardRoute != null || showSettings) {
         when {
-            showPostDialog -> showPostDialog = false
+            showAddProductDialog -> {
+                showAddProductDialog = false
+                productBeingEdited = null
+            }
             openCardRoute != null -> openCardRoute = null
             showSettings -> showSettings = false
         }
@@ -137,55 +149,122 @@ fun VendorHome(
                     )
                 } else if (openCardRoute == null) {
                     Column(
-                        modifier = contentModifier.verticalScroll(rememberScrollState())
+                        modifier =  contentModifier.verticalScroll(rememberScrollState())
                     ) {
-                        HomeTopBar(
-                            shopIsOpen = shopIsOpen,
-                            onMoonClick = { shopIsOpen = !shopIsOpen },
-                            onProfileClick = { showSettings = true },
-                        )
-                        OpenShopUI(
-                            shopIsOpen = shopIsOpen,
-                            onToggleShop = { newValue -> shopIsOpen = newValue },
-                            onAddPost = { showPostDialog = true },
-                        )
-                        HomeCardsVendor(
-                            modifier = Modifier.fillMaxWidth(),
-                            shopIsOpen = shopIsOpen,
-                            onCardClick = { openCardRoute = it },
-                        )
+                        val primaryShop = marketplace.shopList.firstOrNull()
+                        if (primaryShop != null) {
+                            HomeTopBar(
+                                shop = primaryShop,
+                                serviceProfile = marketplace.serviceProfile,
+                                reservationBusiness = marketplace.reservationPlaceList.firstOrNull(),
+                                servicePosts = marketplace.servicePostList,
+                                onProfileClick = { showSettings = true },
+                                onShopCardClick = onNavigateToShopDetails,
+                                onServiceCardClick = { openCardRoute = VendorCardRoute.Services },
+                                onReservationCardClick = { openCardRoute = VendorCardRoute.Reservations },
+                                onShareDetails = { text ->
+                                    copyAndShareVendorDetails(context, text)
+                                },
+                            )
+                            OpenShopUI(
+                                shopIsOpen = primaryShop.isOpen,
+                                onToggleShop = { newValue ->
+                                    val list = marketplace.shopList
+                                    if (list.isNotEmpty()) {
+                                        list[0] = list[0].copy(isOpen = newValue)
+                                    }
+                                },
+                                onAddPost = {
+                                    productBeingEdited = null
+                                    showAddProductDialog = true
+                                },
+                            )
+                            HomeCardsVendor(
+                                modifier = Modifier.fillMaxWidth(),
+                                shopIsOpen = primaryShop.isOpen,
+                                onCardClick = { openCardRoute = it },
+                            )
+                        }
                         HomeItemListView(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(320.dp)
+                                .weight(1f)
                         )
                     }
                 } else {
                     val route = openCardRoute!!
-                    Scaffold(
-                        modifier = contentModifier,
-                        topBar = {
-                            TopAppBar(
-                                title = { Text(route.title()) },
-                                navigationIcon = {
-                                    IconButton(onClick = { openCardRoute = null }) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                            contentDescription = "Back",
+                    when (route) {
+                        VendorCardRoute.Products -> MyProductsScreen(
+                            modifier = contentModifier,
+                            products = marketplace.productList,
+                            onBack = { openCardRoute = null },
+                            onEdit = {
+                                productBeingEdited = it
+                                showAddProductDialog = true
+                            },
+                            onActivate = { p ->
+                                val i = marketplace.productList.indexOfFirst { it.id == p.id }
+                                if (i >= 0) {
+                                    marketplace.productList[i] = p.copy(isActive = true)
+                                }
+                            },
+                            onDeactivate = { p ->
+                                val i = marketplace.productList.indexOfFirst { it.id == p.id }
+                                if (i >= 0) {
+                                    marketplace.productList[i] = p.copy(isActive = false)
+                                }
+                            },
+                            onDelete = { p -> marketplace.productList.remove(p) },
+                        )
+                        VendorCardRoute.Services -> MyServicesScreen(
+                            modifier = contentModifier,
+                            marketplace = marketplace,
+                            onBack = { openCardRoute = null },
+                        )
+                        VendorCardRoute.Shop,
+                        VendorCardRoute.Reservations -> Scaffold(
+                            modifier = contentModifier,
+                            contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+                            containerColor = VendorUi.ScreenBg,
+                            topBar = {
+                                TopAppBar(
+                                    windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+                                    title = {
+                                        Text(
+                                            text = route.title(),
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = VendorUi.TextDark,
                                         )
-                                    }
-                                },
-                            )
-                        },
-                    ) { innerPadding ->
-                        val screenModifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                        when (route) {
-                            VendorCardRoute.Shop -> MyShop(screenModifier)
-                            VendorCardRoute.Services -> MyServices(screenModifier, marketplace.serviceList)
-                            VendorCardRoute.Reservations -> MyReservation(screenModifier, marketplace.reservationList)
-                            VendorCardRoute.Products -> MyProducts(screenModifier, marketplace.productList)
+                                    },
+                                    navigationIcon = {
+                                        IconButton(onClick = { openCardRoute = null }) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = "Back",
+                                            )
+                                        }
+                                    },
+                                    colors = TopAppBarDefaults.topAppBarColors(
+                                        containerColor = VendorUi.TopBarBg,
+                                        titleContentColor = VendorUi.TextDark,
+                                        navigationIconContentColor = VendorUi.TextDark,
+                                    ),
+                                )
+                            },
+                        ) { innerPadding ->
+                            val screenModifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                            when (route) {
+                                VendorCardRoute.Shop -> MyShop(screenModifier)
+                                VendorCardRoute.Reservations -> MyReservationsScreen(
+                                    modifier = screenModifier,
+                                    marketplace = marketplace,
+                                )
+                                VendorCardRoute.Services,
+                                VendorCardRoute.Products -> Unit
+                            }
                         }
                     }
                 }
@@ -211,15 +290,44 @@ fun VendorHome(
         )
     }
 
-    VendorPostDialog(
-        visible = showPostDialog,
-        onDismiss = { showPostDialog = false },
-        onPostProduct = { marketplace.productList.add(it) },
-        onPostReservation = { marketplace.reservationList.add(it) },
-        onPostService = { marketplace.serviceList.add(it) },
-        nextProductId = marketplace::takeNextProductId,
+    AddProductDialog(
+        visible = showAddProductDialog,
+        editingProduct = productBeingEdited,
+        peekNextProductId = marketplace::peekNextProductId,
+        takeNextProductId = marketplace::takeNextProductId,
+        currentShopName = marketplace.shopList.firstOrNull()?.shopName.orEmpty(),
+        onDismiss = {
+            showAddProductDialog = false
+            productBeingEdited = null
+        },
+        onSubmit = { product, isEdit ->
+            if (isEdit) {
+                val i = marketplace.productList.indexOfFirst { it.id == product.id }
+                if (i >= 0) {
+                    marketplace.productList[i] = product
+                }
+            } else {
+                marketplace.productList.add(product)
+            }
+        },
     )
 }
+
+private fun copyAndShareVendorDetails(context: Context, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("SeeBazar details", text))
+    Toast.makeText(context, "Details copied", Toast.LENGTH_SHORT).show()
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    context.startActivity(Intent.createChooser(send, "Share via"))
+}
+
+val gradientColors = listOf(
+    Color(0xFFF0F9FF),
+    Color(0xFFFFFFFF),
+)
 @Composable
 fun OpenShopUI(
     shopIsOpen: Boolean,
@@ -231,7 +339,11 @@ fun OpenShopUI(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = gradientColors
+                )
+            )
             .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

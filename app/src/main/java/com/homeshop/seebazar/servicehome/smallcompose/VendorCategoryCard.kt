@@ -28,7 +28,6 @@ import com.homeshop.seebazar.R // Replace with your R package
 fun VendorCategoryCard(
     title: String,
     staticBgId: Int,
-    shopIsOpen: Boolean? = null,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     compact: Boolean = false,
@@ -65,7 +64,6 @@ fun VendorCategoryCard(
                 fontSize = titleSize,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
-                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = if (compact) 16.sp else 20.sp,
                 modifier = Modifier
@@ -90,9 +88,8 @@ fun VendorCategoryCard(
 @Composable
 private fun VendorCategoryCardPreview() {
     VendorCategoryCard(
-        title = "My Shop",
-        staticBgId = R.drawable.store,
-        shopIsOpen = false
+        title = "My Skjdfndfoifhop",
+        staticBgId = R.drawable.store
     )
 }
 

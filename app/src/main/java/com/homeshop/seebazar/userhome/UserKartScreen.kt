@@ -22,7 +22,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,13 +36,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.homeshop.seebazar.data.KartEntry
 import com.homeshop.seebazar.data.MarketplaceData
 import com.homeshop.seebazar.servicehome.VendorUi
+import com.homeshop.seebazar.ui.FormBottomSheetScaffold
+import com.homeshop.seebazar.ui.FormSheetPrimaryButton
+import com.homeshop.seebazar.ui.FormSheetTextField
 
 private val ScreenBg = Color(0xFFF8FAFC)
+private val ChipSelectedBg = Color(0xFF1F2937)
+private val ChipUnselectedBg = Color(0xFFF3F4F6)
 
 @Composable
 fun UserKartScreen(
@@ -90,7 +92,7 @@ fun UserKartScreen(
             productLines.forEach { line ->
                 KartCard(
                     title = line.product.name,
-                    subtitle = "${line.product.brand} · ${line.product.price} / ${line.product.unit}",
+                    subtitle = "${line.product.brand} · ${line.product.mrpPrice} / ${line.product.unit}",
                     extra = line.product.description.takeIf { it.isNotBlank() },
                 ) {
                     Button(
@@ -167,105 +169,49 @@ fun UserKartScreen(
 @Composable
 fun OrderConfirmDialog(
     onDismiss: () -> Unit,
-    onOrderClick: (String, String) -> Unit
+    onOrderClick: (String, String) -> Unit,
 ) {
     var selectedPayment by remember { mutableStateOf("Prepaid") }
     var pickupTime by remember { mutableStateOf("") }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = Color.White,
-            tonalElevation = 6.dp,
-            modifier = Modifier.fillMaxWidth()
+    FormBottomSheetScaffold(
+        onDismiss = onDismiss,
+        title = "Confirm Order",
+    ) {
+        Text(
+            text = "Choose Payment Type",
+            style = MaterialTheme.typography.labelMedium,
+            color = VendorUi.TextMuted,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-            ) {
-                Text(
-                    text = "Confirm Order",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Choose Payment Type",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.DarkGray
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    PaymentOptionChip(
-                        text = "Prepaid",
-                        selected = selectedPayment == "Prepaid",
-                        onClick = { selectedPayment = "Prepaid" },
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    PaymentOptionChip(
-                        text = "Postpaid",
-                        selected = selectedPayment == "Postpaid",
-                        onClick = { selectedPayment = "Postpaid" },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                Text(
-                    text = "Pickup Time",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.DarkGray
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = pickupTime,
-                    onValueChange = { pickupTime = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Enter pickup time (e.g. 5:30 PM)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp)
-                )
-
-                Spacer(modifier = Modifier.height(22.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text("Cancel")
-                    }
-
-                    Button(
-                        onClick = {
-                            onOrderClick(selectedPayment, pickupTime)
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text("Order")
-                    }
-                }
-            }
+            PaymentOptionChip(
+                text = "Prepaid",
+                selected = selectedPayment == "Prepaid",
+                onClick = { selectedPayment = "Prepaid" },
+                modifier = Modifier.weight(1f),
+            )
+            PaymentOptionChip(
+                text = "Postpaid",
+                selected = selectedPayment == "Postpaid",
+                onClick = { selectedPayment = "Postpaid" },
+                modifier = Modifier.weight(1f),
+            )
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        FormSheetTextField(
+            label = "Pickup Time",
+            value = pickupTime,
+            onValueChange = { pickupTime = it },
+            placeholder = "Enter pickup time (e.g. 5:30 PM)",
+        )
+        FormSheetPrimaryButton(
+            text = "Order",
+            onClick = { onOrderClick(selectedPayment, pickupTime) },
+        )
     }
 }
 
@@ -278,24 +224,23 @@ fun PaymentOptionChip(
 ) {
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(20.dp))
             .clickable { onClick() },
-        shape = RoundedCornerShape(14.dp),
-        color = if (selected) Color(0xFFE8F5E9) else Color(0xFFF7F7F7),
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) ChipSelectedBg else ChipUnselectedBg,
         border = BorderStroke(
             width = 1.dp,
-            color = if (selected) Color(0xFF2E7D32) else Color.LightGray
-        )
+            color = if (selected) ChipSelectedBg else Color(0xFFE5E7EB),
+        ),
     ) {
         Box(
-            modifier = Modifier
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center
+            modifier = Modifier.padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = text,
-                fontWeight = FontWeight.Medium,
-                color = if (selected) Color(0xFF2E7D32) else Color.DarkGray
+                fontWeight = FontWeight.SemiBold,
+                color = if (selected) Color.White else VendorUi.TextDark,
             )
         }
     }

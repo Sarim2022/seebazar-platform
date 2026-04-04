@@ -1,9 +1,14 @@
 package com.homeshop.seebazar.userhome
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,9 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,9 +37,18 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -126,7 +140,7 @@ fun UserHome(
                 } else {
                     UserHomeMainContent(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxSize().background(Color.White)
                             .padding(paddingValues),
                         marketplace = marketplace,
                         onProfileClick = { showSettings = true },
@@ -139,11 +153,10 @@ fun UserHome(
                     .padding(paddingValues),
                 marketplace = marketplace,
             )
-            2 -> UserPlaceholderScreen(
+            2 -> UserChatsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                title = "Chat",
             )
             3 -> UserPlaceholderScreen(
                 modifier = Modifier
@@ -166,36 +179,106 @@ fun UserHome(
     }
 }
 
+/** Interpolates each gradient stop when switching Products / Services / Reservations. */
+@Composable
+private fun animatedInsightGradientColors(
+    selectedInsightIndex: Int,
+    product: List<Color>,
+    service: List<Color>,
+    reservation: List<Color>,
+    animationSpec: FiniteAnimationSpec<Color> = tween(
+        durationMillis = 500,
+        easing = FastOutSlowInEasing,
+    ),
+): List<Color> {
+    fun targetStop(i: Int): Color = when (selectedInsightIndex) {
+        0 -> product[i]
+        1 -> service[i]
+        else -> reservation[i]
+    }
+    val s0 by animateColorAsState(targetStop(0), animationSpec, label = "insightG0")
+    val s1 by animateColorAsState(targetStop(1), animationSpec, label = "insightG1")
+    val s2 by animateColorAsState(targetStop(2), animationSpec, label = "insightG2")
+    val s3 by animateColorAsState(targetStop(3), animationSpec, label = "insightG3")
+    val s4 by animateColorAsState(targetStop(4), animationSpec, label = "insightG4")
+    val s5 by animateColorAsState(targetStop(5), animationSpec, label = "insightG5")
+    return listOf(s0, s1, s2, s3, s4, s5)
+}
+
 @Composable
 private fun UserHomeMainContent(
     modifier: Modifier = Modifier,
     marketplace: MarketplaceData,
     onProfileClick: () -> Unit,
 ) {
-    var searchQuery by remember { mutableStateOf("") }
+    var showUserSearch by remember { mutableStateOf(false) }
     var selectedInsightIndex by remember { mutableIntStateOf(0) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.White),
-    ) {
-        UserHomeTopBar(onProfileClick = onProfileClick)
-        UserSearchBar(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
+    if (showUserSearch) {
+        UserSearchScreen(
+            marketplace = marketplace,
+            onBack = { showUserSearch = false },
+            modifier = modifier,
         )
+        return
+    }
+
+    // Six stops; last is Color.White so the fade matches tab + panel backgrounds below.
+    val productGradient = listOf(
+        Color(0xFF2781F5),
+        Color(0xFF7CB2F8),
+        Color(0xFF9FC4FA),
+        Color(0xFFC8E6FD),
+        Color(0xFFE3F2FD),
+        Color.White,
+    )
+    val serviceGradient = listOf(
+        Color(0xFF16A34A),
+        Color(0xFF4ADE80),
+        Color(0xFF86EFAC),
+        Color(0xFFBBF7D0),
+        Color(0xFFDCFCE7),
+        Color.White,
+    )
+    val reservationGradient = listOf(
+        Color(0xFFEAB308),
+        Color(0xFFFACC15),
+        Color(0xFFFDE047),
+        Color(0xFFFEF08A),
+        Color(0xFFFEF9C3),
+        Color.White,
+    )
+    val gradientColors = animatedInsightGradientColors(
+        selectedInsightIndex = selectedInsightIndex,
+        product = productGradient,
+        service = serviceGradient,
+        reservation = reservationGradient,
+    )
+
+    // Single scroll: header (gradient + top bar + search + banner) moves with the insight tabs
+    // and list — not fixed while only "Available …" scrolls.
+    val homeScroll = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(ScreenBg),
+                .verticalScroll(homeScroll),
         ) {
-            BannerSlider()
-            UserHomeInsightSection(
+            Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .background(brush = Brush.verticalGradient(colors = gradientColors)),
+            ) {
+                UserHomeTopBar(onProfileClick = onProfileClick)
+                UserSearchBar(
+                    onClick = { showUserSearch = true },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+                BannerSlider()
+            }
+            UserHomeInsightSection(
+                modifier = Modifier.fillMaxWidth(),
                 marketplace = marketplace,
                 selectedIndex = selectedInsightIndex,
                 onTabSelected = { selectedInsightIndex = it },
@@ -214,11 +297,7 @@ private fun UserHomeInsightSection(
 ) {
     val category = userInsightTabs[selectedIndex].category
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.White),
-    ) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -240,7 +319,6 @@ private fun UserHomeInsightSection(
 
         Column(
             modifier = Modifier
-                .weight(1f, fill = true)
                 .fillMaxWidth()
                 .padding(start = 2.dp, end = 2.dp, bottom = 2.dp)
                 .clip(RoundedCornerShape(12.dp))
@@ -257,15 +335,15 @@ private fun UserHomeInsightSection(
             when (category) {
                 UserBrowseCategory.Products -> UserBrowseProductsPanel(
                     marketplace = marketplace,
-                    modifier = Modifier.weight(1f, fill = true).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 UserBrowseCategory.Reservations -> UserBrowseReservationsPanel(
                     marketplace = marketplace,
-                    modifier = Modifier.weight(1f, fill = true).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 UserBrowseCategory.Services -> UserBrowseServicesPanel(
                     marketplace = marketplace,
-                    modifier = Modifier.weight(1f, fill = true).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -274,37 +352,71 @@ private fun UserHomeInsightSection(
 
 @Composable
 private fun UserSearchBar(
-    value: String,
-    onValueChange: (String) -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val border = Color(0xFFE8ECF4)
     val bg = Color(0xFFF7F8F9)
 
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        placeholder = {
-            Text("Search 'toys'", color = TextMuted)
-        },
-        leadingIcon = {
+    // 1. Define your list of items
+    val searchItems = listOf("Milk", "Electrician", "Drink", "Wheat","Fruits","Electrician","Medicine","Library")
+    var currentIndex by remember { mutableIntStateOf(0) }
+
+    // 2. Timer Logic: Change index every 2 seconds
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(2000) // 2 seconds
+            currentIndex = (currentIndex + 1) % searchItems.size
+        }
+    }
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = bg,
+        border = BorderStroke(1.dp, border),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(
                 imageVector = Icons.Outlined.Search,
                 contentDescription = null,
-                tint = TextMuted,
+                tint = Color.Gray, // Replaced TextMuted with Gray for standalone code
             )
-        },
-        singleLine = true,
-        shape = RoundedCornerShape(28.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = bg,
-            unfocusedContainerColor = bg,
-            focusedBorderColor = border,
-            unfocusedBorderColor = border,
-        ),
-    )
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // 3. Layout for "Search by" + Dynamic Text
+            Row {
+                Text(
+                    text = "Search by ",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Gray,
+                )
+
+                // 4. Animation for the changing word
+                AnimatedContent(
+                    targetState = searchItems[currentIndex],
+                    transitionSpec = {
+                        // Fade in and slide up, Fade out and slide up
+                        (fadeIn(animationSpec = tween(500)) + slideInVertically { it })
+                            .togetherWith(fadeOut(animationSpec = tween(500)) + slideOutVertically { -it })
+                    },
+                    label = "SearchTextAnimation"
+                ) { targetWord ->
+                    Text(
+                        text = targetWord,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Gray,
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

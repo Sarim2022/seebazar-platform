@@ -1,17 +1,20 @@
 package com.homeshop.seebazar.userhome
 
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -24,18 +27,25 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.homeshop.seebazar.data.KartEntry
 import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.servicehome.ReservationBusiness
+import com.homeshop.seebazar.servicehome.ReservationSlot
 import com.homeshop.seebazar.servicehome.VendorProduct
 import com.homeshop.seebazar.servicehome.VendorReservation
-import com.homeshop.seebazar.servicehome.VendorServiceItem
+import com.homeshop.seebazar.servicehome.VendorServicePost
 import com.homeshop.seebazar.servicehome.VendorUi
 
 private val CallChatGreyBg = Color(0xFFE5E7EB)
@@ -57,15 +67,11 @@ fun UserBrowseProductsPanel(
         return
     }
     val rows = products.chunked(2)
-    LazyColumn(
+    Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(
-            count = rows.size,
-            key = { index -> rows[index].joinToString(separator = "-") { it.id.toString() } },
-        ) { index ->
-            val row = rows[index]
+        rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -74,6 +80,7 @@ fun UserBrowseProductsPanel(
                     Box(modifier = Modifier.weight(1f)) {
                         UserProductCard(
                             product = product,
+                            shopNameFallback = marketplace.shopList.firstOrNull()?.shopName.orEmpty(),
                             onAddToCart = {
                                 marketplace.cartList.add(KartEntry.ProductInCart(product = product))
                             },
@@ -88,28 +95,63 @@ fun UserBrowseProductsPanel(
     }
 }
 
+/**
+ * Vendor posts live in [MarketplaceData.reservationPlaceList] + [MarketplaceData.reservationSlotList];
+ * we map active slots here so the same data appears on the user Reservations tab (test mode).
+ */
+internal fun reservationSlotToVendorReservation(
+    business: ReservationBusiness?,
+    slot: ReservationSlot,
+): VendorReservation {
+    val venueName = when {
+        business != null -> "${business.businessName} · ${slot.title}"
+        else -> slot.title
+    }
+    val date = when {
+        slot.availableDaily -> "Daily"
+        else -> slot.specificDate.ifBlank { "—" }
+    }
+    val timeSlot = when {
+        slot.startTime.isNotBlank() && slot.endTime.isNotBlank() ->
+            "${slot.startTime} – ${slot.endTime}"
+        slot.startTime.isNotBlank() -> slot.startTime
+        else -> slot.endTime.ifBlank { "—" }
+    }
+    val detailLines = buildList {
+        if (slot.description.isNotBlank()) add(slot.description)
+        add("${slot.category.displayLabel} · ${slot.bookingType.displayLabel}")
+        if (slot.totalAvailable.isNotBlank()) add("Spots: ${slot.totalAvailable}")
+    }
+    return VendorReservation(
+        venueName = venueName,
+        date = date,
+        timeSlot = timeSlot,
+        numPeople = slot.capacity.ifBlank { "—" },
+        instructions = detailLines.joinToString("\n"),
+        price = slot.price,
+    )
+}
+
 @Composable
 fun UserBrowseReservationsPanel(
     marketplace: MarketplaceData,
     modifier: Modifier = Modifier,
 ) {
-    val reservations = marketplace.reservationList
-    if (reservations.isEmpty()) {
+    val business = marketplace.reservationPlaceList.firstOrNull()
+    val activeSlots = marketplace.reservationSlotList.filter { it.isActive }
+    if (activeSlots.isEmpty()) {
         EmptyBrowseMessage(
             text = "No reservations available yet.",
             modifier = modifier,
         )
         return
     }
-    LazyColumn(
+    Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(
-            reservations.size,
-            key = { index -> "res-$index-${reservations[index].venueName}" },
-        ) { index ->
-            val reservation = reservations[index]
+        activeSlots.forEach { slot ->
+            val reservation = reservationSlotToVendorReservation(business, slot)
             UserReservationCard(
                 reservation = reservation,
                 onBook = {
@@ -125,7 +167,7 @@ fun UserBrowseServicesPanel(
     marketplace: MarketplaceData,
     modifier: Modifier = Modifier,
 ) {
-    val services = marketplace.serviceList
+    val services = marketplace.servicePostList.filter { it.isActive }
     if (services.isEmpty()) {
         EmptyBrowseMessage(
             text = "No services listed yet.",
@@ -133,15 +175,11 @@ fun UserBrowseServicesPanel(
         )
         return
     }
-    LazyColumn(
+    Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(
-            services.size,
-            key = { index -> "svc-$index-${services[index].serviceName}" },
-        ) { index ->
-            val service = services[index]
+        services.forEach { service ->
             UserServiceCard(service = service)
         }
     }
@@ -161,72 +199,120 @@ private fun EmptyBrowseMessage(
 }
 
 @Composable
-private fun UserProductCard(
+internal fun UserProductCard(
     product: VendorProduct,
+    shopNameFallback: String,
     onAddToCart: () -> Unit,
 ) {
+    val shopLabel = product.vendorShopName.ifBlank { shopNameFallback }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-        ) {
-            Text(
-                text = product.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = VendorUi.TextDark,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+        Column(modifier = Modifier.fillMaxWidth()) {
+            UserProductSquareImage(
+                product = product,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Brand: ${product.brand.ifBlank { "—" }}",
-                style = MaterialTheme.typography.bodySmall,
-                color = VendorUi.TextMuted,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Price: ${product.price}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = VendorUi.TextDark,
-            )
-            Text(
-                text = "Unit: ${product.unit.ifBlank { "—" }}",
-                style = MaterialTheme.typography.bodySmall,
-                color = VendorUi.TextMuted,
-            )
-            if (product.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                 Text(
-                    text = product.description,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = shopLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
                     color = VendorUi.TextMuted,
-                    maxLines = 3,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Button(
-                onClick = onAddToCart,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text("Add to Cart")
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = product.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = VendorUi.TextDark,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = product.mrpPrice,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = VendorUi.TextDark,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onAddToCart,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text("Add to Cart")
+                }
             }
         }
     }
 }
 
 @Composable
-private fun UserReservationCard(
+private fun UserProductSquareImage(
+    product: VendorProduct,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val resId = product.imageDrawableRes?.takeIf { it != 0 }
+    val bitmap = remember(product.imageUri) {
+        val uriString = product.imageUri
+        if (uriString.isNullOrBlank()) {
+            null
+        } else {
+            runCatching {
+                val uri = Uri.parse(uriString)
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream)
+                }
+            }.getOrNull()
+        }
+    }
+    Box(
+        modifier = modifier.background(Color(0xFFF1F5F9)),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            resId != null -> {
+                Image(
+                    painter = painterResource(id = resId),
+                    contentDescription = product.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            bitmap != null -> {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = product.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            else -> {
+                Text(
+                    text = product.name.take(1).uppercase(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = VendorUi.TextMuted,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun UserReservationCard(
     reservation: VendorReservation,
     onBook: () -> Unit,
 ) {
@@ -243,6 +329,15 @@ private fun UserReservationCard(
                 fontWeight = FontWeight.SemiBold,
                 color = VendorUi.TextDark,
             )
+            if (reservation.price.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = reservation.price,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = VendorUi.BrandBlue,
+                )
+            }
             Spacer(modifier = Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -284,6 +379,24 @@ private fun UserReservationCard(
                         color = VendorUi.BrandBlue,
                     )
                 }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(VendorUi.ScreenBg, RoundedCornerShape(10.dp))
+                        .padding(10.dp),
+                ) {
+                    Text(
+                        text = "Capacity",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = VendorUi.TextMuted,
+                    )
+                    Text(
+                        text = reservation.numPeople.ifBlank { "—" },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = VendorUi.BrandBlue,
+                    )
+                }
             }
             if (reservation.instructions.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
@@ -307,8 +420,8 @@ private fun UserReservationCard(
 }
 
 @Composable
-private fun UserServiceCard(
-    service: VendorServiceItem,
+internal fun UserServiceCard(
+    service: VendorServicePost,
 ) {
     val context = LocalContext.current
     Card(
@@ -319,30 +432,35 @@ private fun UserServiceCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = service.serviceName,
+                text = service.title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = VendorUi.TextDark,
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = service.id,
+                style = MaterialTheme.typography.labelSmall,
+                color = VendorUi.TextMuted,
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Fixed price: ${service.priceFixed}",
+                text = "Price: ${service.price}",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = VendorUi.BrandBlue,
             )
-            if (service.availability.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = service.availability,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VendorUi.TextMuted,
-                )
-            }
-            if (service.instruction.isNotBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "${service.category.displayLabel} · ${service.estimatedTime}" +
+                    if (service.emergencyAvailable) " · Emergency OK" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = VendorUi.TextMuted,
+            )
+            if (service.description.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = service.instruction,
+                    text = service.description,
                     style = MaterialTheme.typography.bodySmall,
                     color = VendorUi.TextMuted,
                 )

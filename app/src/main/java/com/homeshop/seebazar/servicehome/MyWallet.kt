@@ -58,7 +58,7 @@ fun MyWallet(modifier: Modifier = Modifier) {
                 .fillMaxSize()
                 .background(VendorUi.ScreenBg)
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
+                .padding(start = 16.dp,end=16.dp, top = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {

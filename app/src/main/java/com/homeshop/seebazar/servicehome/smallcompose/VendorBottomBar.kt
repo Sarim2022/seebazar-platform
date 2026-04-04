@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,12 +46,18 @@ fun VendorBottomBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
 ) {
-    val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    var shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
     NavigationBar(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(10.dp, shape, clip = false)
+            .graphicsLayer {
+                shadowElevation = 10.dp.toPx()
+                shape = shape
+                clip = false
+                ambientShadowColor = Color(0xFF0241A6)
+                spotShadowColor = Color(0xFF0241A6)
+            }
             .clip(shape),
         containerColor = Color.White,
         tonalElevation = 0.dp,

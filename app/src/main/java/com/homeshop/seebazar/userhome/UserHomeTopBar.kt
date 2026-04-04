@@ -1,5 +1,6 @@
 package com.homeshop.seebazar.userhome
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -44,51 +47,65 @@ fun UserHomeTopBar(
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // LEFT SECTION: Address
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Home,
+                        imageVector = Icons.Default.LocationOn, // Map pin icon matches image better
                         contentDescription = null,
-                        tint = brandBlue,
-                        modifier = Modifier.size(22.dp),
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Home",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = textDark,
+                        fontSize = 20.sp, // Slightly larger for that "Bold" header look
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                    )
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = DummyLocationLine,
-                    fontSize = 13.sp,
-                    color = textMuted,
+                    text = "A-114 Street 1/1 Bhagirathi Vihar...",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.9f), // Slightly transparent white
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
 
-            Surface(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clickable { onProfileClick() },
-                shape = CircleShape,
-                color = brandBlue,
-                shadowElevation = 2.dp,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp),
-                    )
+            // RIGHT SECTION: Action Icons
+            Row(verticalAlignment = Alignment.CenterVertically) {
+
+
+                // 3. Profile Initial Circle — opens vendor settings
+                Surface(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clickable { onProfileClick() },
+                    shape = CircleShape,
+                    color = Color(0xFFFDEFD5), // Cream color from image
+                    border = BorderStroke(1.dp, Color(0xFF0090FF)), // Gold border
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "S",
+                            color = Color(0xFF2196F3), // Brownish text
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                        )
+                    }
                 }
             }
         }
