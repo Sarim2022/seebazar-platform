@@ -1,5 +1,9 @@
 # SeeBazar 🛍️
 
+clone it : https://github.com/Sarim2022/seebazar-platform.git
+
+database : firebase using for fast integration
+
 SeeBazar is a **Jetpack Compose + Firebase** based multi-flow marketplace app where users can browse products, book service/reservation slots, place prepaid or postpaid orders, and vendors can manage products, bookings, and verify orders using QR scanning.
 
 ## ✨ Features
