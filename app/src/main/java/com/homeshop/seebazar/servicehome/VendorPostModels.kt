@@ -28,6 +28,10 @@ data class VendorProduct(
     val imageDrawableRes: Int? = null,
     /** Shop name shown on user browse cards; falls back to marketplace shop if blank. */
     val vendorShopName: String = "",
+    /** Vendor Firebase uid when aggregated from catalog (buyer flows). */
+    val sourceVendorId: String = "",
+    /** Payment UPI from vendor shop profile when available. */
+    val vendorUpiId: String = "",
 )
 
 data class VendorReservation(
@@ -37,6 +41,9 @@ data class VendorReservation(
     val numPeople: String,
     val instructions: String,
     val price: String,
+    val vendorShopName: String = "",
+    val sourceVendorId: String = "",
+    val vendorUpiId: String = "",
 )
 
 enum class ReservationBusinessType(val displayLabel: String) {
@@ -50,7 +57,7 @@ enum class ReservationBusinessType(val displayLabel: String) {
 }
 
 /**
- * Vendor-owned reservation venue (dummy list in [com.homeshop.seebazar.data.MarketplaceData.reservationPlaceList]).
+ * Vendor-owned reservation venue ([com.homeshop.seebazar.data.MarketplaceData.reservationPlaceList]).
  */
 data class ReservationBusiness(
     val id: String,
@@ -127,7 +134,7 @@ enum class VendorServicePostCategory(val displayLabel: String) {
 }
 
 /**
- * One service-provider profile per vendor (dummy singleton in [com.homeshop.seebazar.data.MarketplaceData.serviceProfile]).
+ * One service-provider profile per vendor ([com.homeshop.seebazar.data.MarketplaceData.serviceProfile]).
  */
 data class VendorServiceProfile(
     val id: String,

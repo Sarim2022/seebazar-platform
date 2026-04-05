@@ -57,7 +57,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.homeshop.seebazar.R
+import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.data.VendorLocationPrefs
+import com.homeshop.seebazar.data.VendorPrefs
 import com.homeshop.seebazar.servicehome.ReservationBusiness
 import com.homeshop.seebazar.servicehome.ReservationSlot
 import com.homeshop.seebazar.servicehome.VendorUi
@@ -66,10 +69,18 @@ import com.homeshop.seebazar.servicehome.VendorUi
 fun MyReservationsScreen(
     modifier: Modifier = Modifier,
     marketplace: MarketplaceData,
+    onPersistVendor: () -> Unit = {},
 ) {
     val placeList = marketplace.reservationPlaceList
     val slotList = marketplace.reservationSlotList
     val business = placeList.firstOrNull()
+    val context = LocalContext.current
+    val accountNameForReservation = VendorPrefs.cachedDisplayName(context).ifBlank {
+        FirebaseAuth.getInstance().currentUser?.displayName.orEmpty()
+    }
+    val prefAddr = VendorLocationPrefs.addressLine(context)
+    val prefCity = VendorLocationPrefs.city(context)
+    val prefPostal = VendorLocationPrefs.postalCode(context)
 
     var showCreatePlace by remember { mutableStateOf(false) }
     var showSlotDialog by remember { mutableStateOf(false) }
@@ -89,10 +100,15 @@ fun MyReservationsScreen(
         visible = showCreatePlace,
         peekNextReservationBusinessId = marketplace::peekNextReservationBusinessId,
         takeNextReservationBusinessId = marketplace::takeNextReservationBusinessId,
+        defaultOwnerName = accountNameForReservation,
+        initialAddress = prefAddr,
+        initialCity = prefCity,
+        initialPostalCode = prefPostal,
         onDismiss = { showCreatePlace = false },
         onSubmit = { place ->
             placeList.clear()
             placeList.add(place)
+            onPersistVendor()
         },
     )
 
@@ -112,6 +128,7 @@ fun MyReservationsScreen(
             } else {
                 slotList.add(slot)
             }
+            onPersistVendor()
         },
     )
 

@@ -5,23 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -32,19 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyWallet(modifier: Modifier = Modifier) {
-    val transactions = listOf(
-        TransactionItem("Order #88421", "Today, 02:30 PM", "+ ₹1,200", true),
-        TransactionItem("Withdrawal", "Yesterday, 06:10 PM", "- ₹500", false),
-        TransactionItem("Service Fee #S202", "Mar 30, 11:45 AM", "+ ₹850", true),
-        TransactionItem("Refund", "Mar 29, 09:20 AM", "- ₹300", false),
-    )
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = VendorUi.ScreenBg,
@@ -53,44 +38,27 @@ fun MyWallet(modifier: Modifier = Modifier) {
             VendorStandardTopBar(title = "Wallet")
         },
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(VendorUi.ScreenBg)
                 .padding(paddingValues)
-                .padding(start = 16.dp,end=16.dp, top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item {
-                Spacer(modifier = Modifier.height(4.dp))
-                WalletBalanceCard(
-                    balanceLabel = "Available Balance",
-                    balanceAmount = "₹12,450",
-                )
-            }
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    BalanceDetailItem("Shop Sale", "₹8,200", Modifier.weight(1f))
-                    BalanceDetailItem("Services", "₹2,250", Modifier.weight(1f))
-                    BalanceDetailItem("Reserved", "₹2,000", Modifier.weight(1f))
-                }
-            }
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "All Transactions",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = VendorUi.TextDark,
-                )
-            }
-            items(transactions) { transaction ->
-                MinimalTransactionRow(transaction)
-            }
+            WalletBalanceCard(
+                balanceLabel = "Available Balance",
+                balanceAmount = "₹0",
+            )
+            Text(
+                text = "Transactions will appear here once you receive payments.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = VendorUi.TextMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp),
+            )
         }
     }
 }
@@ -138,91 +106,6 @@ private fun WalletBalanceCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-fun BalanceDetailItem(label: String, amount: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White,
-        tonalElevation = 1.dp,
-        shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, VendorUi.CardStroke),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = VendorUi.TextMuted,
-            )
-            Text(
-                text = amount,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = VendorUi.TextDark,
-            )
-        }
-    }
-}
-
-data class TransactionItem(
-    val title: String,
-    val date: String,
-    val amount: String,
-    val isCredit: Boolean,
-)
-
-@Composable
-fun MinimalTransactionRow(item: TransactionItem) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .background(
-                    if (item.isCredit) Color(0xFFEAF8EE) else Color(0xFFFFF1F1),
-                    CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = if (item.isCredit) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
-                contentDescription = null,
-                tint = if (item.isCredit) Color(0xFF2E7D32) else Color(0xFFD32F2F),
-                modifier = Modifier.size(18.dp),
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .padding(start = 12.dp)
-                .weight(1f),
-        ) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = VendorUi.TextDark,
-            )
-            Text(
-                text = item.date,
-                style = MaterialTheme.typography.bodySmall,
-                color = VendorUi.TextMuted,
-            )
-        }
-
-        Text(
-            text = item.amount,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (item.isCredit) Color(0xFF2E7D32) else Color(0xFFD32F2F),
-        )
     }
 }
 

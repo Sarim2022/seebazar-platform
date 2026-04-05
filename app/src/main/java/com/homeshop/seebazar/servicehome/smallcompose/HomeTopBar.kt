@@ -21,10 +21,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.HomeRepairService
 import androidx.compose.material.icons.outlined.Share
@@ -51,6 +48,7 @@ import com.homeshop.seebazar.data.ShopDetails
 import com.homeshop.seebazar.servicehome.ReservationBusiness
 import com.homeshop.seebazar.servicehome.VendorServicePost
 import com.homeshop.seebazar.servicehome.VendorServiceProfile
+import com.homeshop.seebazar.ui.ellipsizeLocationHeadline
 
 private enum class HomeTopPagerPage {
     Shop,
@@ -61,16 +59,24 @@ private enum class HomeTopPagerPage {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeTopBar(
-    shop: ShopDetails,
+    shop: ShopDetails?,
     serviceProfile: VendorServiceProfile?,
     reservationBusiness: ReservationBusiness?,
     /** Active listings preview on the service home card (same list as [com.homeshop.seebazar.data.MarketplaceData.servicePostList]). */
     servicePosts: List<VendorServicePost> = emptyList(),
+    /** Top-left headline (e.g. city or “Location”). */
+    locationHeadline: String,
+    /** Top-left detail line (street or coordinates). */
+    locationSubtitle: String,
+    /** Initial in the profile chip. */
+    profileInitial: String,
     onProfileClick: () -> Unit = {},
     onShopCardClick: () -> Unit = {},
     onServiceCardClick: () -> Unit = {},
     onReservationCardClick: () -> Unit = {},
     onShareDetails: (String) -> Unit = {},
+    /** Tap on the top-left location block (e.g. request permission / refresh GPS). */
+    onLocationClick: () -> Unit = {},
 ) {
     val brandBlue = Color(0xFF155AC1)
     val textMuted = Color(0xFF64748B)
@@ -84,17 +90,9 @@ fun HomeTopBar(
 
     val pages = remember(shop, serviceProfile, reservationBusiness) {
         buildList {
-            add(HomeTopPagerPage.Shop)
+            if (shop != null) add(HomeTopPagerPage.Shop)
             if (serviceProfile != null) add(HomeTopPagerPage.Service)
             if (reservationBusiness != null) add(HomeTopPagerPage.Reservation)
-        }
-    }
-
-    val pagerState = rememberPagerState(pageCount = { pages.size })
-
-    LaunchedEffect(pages.size) {
-        if (pages.isNotEmpty() && pagerState.currentPage >= pages.size) {
-            pagerState.scrollToPage(0)
         }
     }
 
@@ -109,44 +107,42 @@ fun HomeTopBar(
             )
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp),
     ) {
-        // Define these colors or replace with your theme values
-        val LightBlueBg = Color(0xFF70C7FF) // Example background color from image
-
         Row(
             modifier = Modifier
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // LEFT SECTION: Address
-            Column(modifier = Modifier.weight(1f)) {
+            // LEFT SECTION: vendor location
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onLocationClick() },
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.LocationOn, // Map pin icon matches image better
+                        imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(20.dp),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Home",
-                        fontSize = 20.sp, // Slightly larger for that "Bold" header look
+                        text = ellipsizeLocationHeadline(locationHeadline, blankFallback = "Location"),
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
-                    )
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                 }
                 Text(
-                    text = "A-114 Street 1/1 Bhagirathi Vihar...",
+                    text = locationSubtitle.ifBlank { "Add location permission to show your area" },
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.9f), // Slightly transparent white
-                    maxLines = 1,
+                    color = Color.White.copy(alpha = 0.9f),
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -166,8 +162,8 @@ fun HomeTopBar(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = "S",
-                            color = Color(0xFF2196F3), // Brownish text
+                            text = profileInitial.ifBlank { "?" }.take(1),
+                            color = Color(0xFF2196F3),
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                         )
@@ -178,71 +174,110 @@ fun HomeTopBar(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        if (pages.size == 1) {
-            ShopHomeCard(
-                shop = shop,
-                brandBlue = brandBlue,
-                textMuted = textMuted,
-                textDark = textDark,
-                onCardClick = onShopCardClick,
-                onShareClick = { onShareDetails(shopDetailsShareText(shop)) },
-            )
-        } else {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth(),
-            ) { index ->
-                when (pages[index]) {
-                    HomeTopPagerPage.Shop -> ShopHomeCard(
-                        shop = shop,
+        when {
+            pages.isEmpty() -> Spacer(modifier = Modifier.height(8.dp))
+            pages.size == 1 -> when (pages[0]) {
+                HomeTopPagerPage.Shop -> {
+                    val s = shop!!
+                    ShopHomeCard(
+                        shop = s,
                         brandBlue = brandBlue,
                         textMuted = textMuted,
                         textDark = textDark,
                         onCardClick = onShopCardClick,
-                        onShareClick = { onShareDetails(shopDetailsShareText(shop)) },
+                        onShareClick = { onShareDetails(shopDetailsShareText(s)) },
                     )
-                    HomeTopPagerPage.Service -> {
-                        val p = serviceProfile!!
-                        ServiceHomeCard(
-                            profile = p,
-                            servicePosts = servicePosts,
-                            brandBlue = brandBlue,
-                            textMuted = textMuted,
-                            textDark = textDark,
-                            onCardClick = onServiceCardClick,
-                            onShareClick = { onShareDetails(serviceProfileShareText(p)) },
-                        )
-                    }
-                    HomeTopPagerPage.Reservation -> {
-                        val b = reservationBusiness!!
-                        ReservationHomeCard(
-                            business = b,
-                            brandBlue = brandBlue,
-                            textMuted = textMuted,
-                            textDark = textDark,
-                            onCardClick = onReservationCardClick,
-                            onShareClick = { onShareDetails(reservationBusinessShareText(b)) },
-                        )
-                    }
+                }
+                HomeTopPagerPage.Service -> {
+                    val p = serviceProfile!!
+                    ServiceHomeCard(
+                        profile = p,
+                        servicePosts = servicePosts,
+                        brandBlue = brandBlue,
+                        textMuted = textMuted,
+                        textDark = textDark,
+                        onCardClick = onServiceCardClick,
+                        onShareClick = { onShareDetails(serviceProfileShareText(p)) },
+                    )
+                }
+                HomeTopPagerPage.Reservation -> {
+                    val b = reservationBusiness!!
+                    ReservationHomeCard(
+                        business = b,
+                        brandBlue = brandBlue,
+                        textMuted = textMuted,
+                        textDark = textDark,
+                        onCardClick = onReservationCardClick,
+                        onShareClick = { onShareDetails(reservationBusinessShareText(b)) },
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                repeat(pages.size) { i ->
-                    val selected = pagerState.currentPage == i
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 3.dp)
-                            .size(if (selected) 8.dp else 6.dp)
-                            .background(
-                                color = if (selected) brandBlue else textMuted.copy(alpha = 0.35f),
-                                shape = CircleShape,
-                            ),
-                    )
+            else -> {
+                val pagerState = rememberPagerState(pageCount = { pages.size })
+                LaunchedEffect(pages.size) {
+                    if (pagerState.currentPage >= pages.size) {
+                        pagerState.scrollToPage(0)
+                    }
+                }
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { index ->
+                    when (pages[index]) {
+                        HomeTopPagerPage.Shop -> {
+                            val s = shop!!
+                            ShopHomeCard(
+                                shop = s,
+                                brandBlue = brandBlue,
+                                textMuted = textMuted,
+                                textDark = textDark,
+                                onCardClick = onShopCardClick,
+                                onShareClick = { onShareDetails(shopDetailsShareText(s)) },
+                            )
+                        }
+                        HomeTopPagerPage.Service -> {
+                            val p = serviceProfile!!
+                            ServiceHomeCard(
+                                profile = p,
+                                servicePosts = servicePosts,
+                                brandBlue = brandBlue,
+                                textMuted = textMuted,
+                                textDark = textDark,
+                                onCardClick = onServiceCardClick,
+                                onShareClick = { onShareDetails(serviceProfileShareText(p)) },
+                            )
+                        }
+                        HomeTopPagerPage.Reservation -> {
+                            val b = reservationBusiness!!
+                            ReservationHomeCard(
+                                business = b,
+                                brandBlue = brandBlue,
+                                textMuted = textMuted,
+                                textDark = textDark,
+                                onCardClick = onReservationCardClick,
+                                onShareClick = { onShareDetails(reservationBusinessShareText(b)) },
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    repeat(pages.size) { i ->
+                        val selected = pagerState.currentPage == i
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 3.dp)
+                                .size(if (selected) 8.dp else 6.dp)
+                                .background(
+                                    color = if (selected) brandBlue else textMuted.copy(alpha = 0.35f),
+                                    shape = CircleShape,
+                                ),
+                        )
+                    }
                 }
             }
         }
@@ -628,5 +663,8 @@ fun HomeTopBarPreview() {
         ),
         serviceProfile = null,
         reservationBusiness = null,
+        locationHeadline = "Karachi",
+        locationSubtitle = "12 Market Street",
+        profileInitial = "A",
     )
 }

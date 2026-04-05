@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -63,5 +64,10 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
     implementation("io.github.jan-tennert.supabase:supabase-kt:2.0.0")
 
+    implementation(platform(libs.firebase.bom))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation(libs.zxing.core)
 
 }

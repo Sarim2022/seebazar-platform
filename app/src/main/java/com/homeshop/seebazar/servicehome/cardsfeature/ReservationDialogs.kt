@@ -69,6 +69,10 @@ fun CreateReservationPlaceDialog(
     visible: Boolean,
     peekNextReservationBusinessId: () -> String,
     takeNextReservationBusinessId: () -> String,
+    defaultOwnerName: String,
+    initialAddress: String,
+    initialCity: String,
+    initialPostalCode: String,
     onDismiss: () -> Unit,
     onSubmit: (ReservationBusiness) -> Unit,
 ) {
@@ -77,7 +81,6 @@ fun CreateReservationPlaceDialog(
     val context = LocalContext.current
     var businessName by remember { mutableStateOf("") }
     var businessType by remember { mutableStateOf(ReservationBusinessType.Restaurant) }
-    var ownerName by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var city by remember { mutableStateOf("") }
@@ -96,16 +99,15 @@ fun CreateReservationPlaceDialog(
         imageUri = uri?.toString()
     }
 
-    LaunchedEffect(visible) {
+    LaunchedEffect(visible, initialAddress, initialCity, initialPostalCode) {
         if (!visible) return@LaunchedEffect
         formError = null
         businessName = ""
         businessType = ReservationBusinessType.Restaurant
-        ownerName = ""
         contactNumber = ""
-        address = ""
-        city = ""
-        postalCode = ""
+        address = initialAddress
+        city = initialCity
+        postalCode = initialPostalCode
         openTime = ""
         closeTime = ""
         totalCapacity = ""
@@ -131,7 +133,7 @@ fun CreateReservationPlaceDialog(
     FormBottomSheetScaffold(
         onDismiss = onDismiss,
         title = "Create Reservation Place",
-        subtitle = "Business ID is assigned automatically.",
+        subtitle = "Owner: ${defaultOwnerName.trim().ifBlank { "—" }} · Business ID is assigned when you save.",
     ) {
         FormSheetTextField(
             label = "Reservation Business ID",
@@ -189,11 +191,6 @@ fun CreateReservationPlaceDialog(
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(thickness = 0.5.dp, color = FormSheetDividerColor)
         }
-        FormSheetTextField(
-            label = "Owner Name *",
-            value = ownerName,
-            onValueChange = { ownerName = it },
-        )
         FormSheetTextField(
             label = "Contact Number *",
             value = contactNumber,
@@ -274,7 +271,8 @@ fun CreateReservationPlaceDialog(
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        val canSave = businessName.isNotBlank() && ownerName.isNotBlank() &&
+        val owner = defaultOwnerName.trim()
+        val canSave = businessName.isNotBlank() && owner.isNotBlank() &&
             contactNumber.isNotBlank() && address.isNotBlank() && city.isNotBlank() &&
             postalCode.isNotBlank() && openTime.isNotBlank() && closeTime.isNotBlank() &&
             totalCapacity.isNotBlank()
@@ -293,7 +291,7 @@ fun CreateReservationPlaceDialog(
                         id = id,
                         businessName = businessName.trim(),
                         businessType = businessType,
-                        ownerName = ownerName.trim(),
+                        ownerName = owner,
                         contactNumber = contactNumber.trim(),
                         address = address.trim(),
                         city = city.trim(),

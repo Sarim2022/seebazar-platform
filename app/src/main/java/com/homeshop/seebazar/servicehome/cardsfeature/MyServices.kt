@@ -1,7 +1,6 @@
 package com.homeshop.seebazar.servicehome.cardsfeature
 
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -67,7 +66,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.data.VendorLocationPrefs
+import com.homeshop.seebazar.data.VendorPrefs
 import com.homeshop.seebazar.servicehome.AddServiceDialog
 import com.homeshop.seebazar.servicehome.CreateServiceProfileDialog
 import com.homeshop.seebazar.servicehome.ServiceChargesType
@@ -75,6 +77,7 @@ import com.homeshop.seebazar.servicehome.ServiceProfession
 import com.homeshop.seebazar.servicehome.VendorServicePost
 import com.homeshop.seebazar.servicehome.VendorServiceProfile
 import com.homeshop.seebazar.servicehome.VendorUi
+import com.homeshop.seebazar.ui.rememberDecodedBitmap
 
 private val MrpGreen = Color(0xFF15803D)
 private val ActiveBg = Color(0xFFDCFCE7)
@@ -92,11 +95,23 @@ fun MyServicesScreen(
     modifier: Modifier = Modifier,
     marketplace: MarketplaceData,
     onBack: () -> Unit,
+    onPersistVendor: () -> Unit = {},
 ) {
     var showCreateProfile by remember { mutableStateOf(false) }
     var showAddService by remember { mutableStateOf(false) }
     var editingPost by remember { mutableStateOf<VendorServicePost?>(null) }
     var showProfileDetails by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val accountNameForService = VendorPrefs.cachedDisplayName(context).ifBlank {
+        FirebaseAuth.getInstance().currentUser?.displayName.orEmpty()
+    }
+    val initialServiceAreaForDialog = run {
+        val pc = VendorLocationPrefs.city(context)
+        val pa = VendorLocationPrefs.addressLine(context)
+        listOf(pc, pa).filter { it.isNotBlank() }.joinToString(", ").ifBlank {
+            VendorLocationPrefs.displaySubtitle(context)
+        }
+    }
 
     BackHandler(enabled = showProfileDetails || showCreateProfile || showAddService) {
         when {
@@ -114,7 +129,10 @@ fun MyServicesScreen(
             modifier = modifier.fillMaxSize(),
             profile = marketplace.serviceProfile!!,
             onBack = { showProfileDetails = false },
-            onSave = { marketplace.serviceProfile = it },
+            onSave = {
+                marketplace.serviceProfile = it
+                onPersistVendor()
+            },
         )
     } else {
         Scaffold(
@@ -175,10 +193,18 @@ fun MyServicesScreen(
                     onActivate = { p ->
                         val i = marketplace.servicePostList.indexOfFirst { it.id == p.id }
                         if (i >= 0) marketplace.servicePostList[i] = p.copy(isActive = true)
+                        onPersistVendor()
                     },
                     onDeactivate = { p ->
                         val i = marketplace.servicePostList.indexOfFirst { it.id == p.id }
                         if (i >= 0) marketplace.servicePostList[i] = p.copy(isActive = false)
+                        onPersistVendor()
+                    },
+                    onProfileAvailabilityChange = { available ->
+                        marketplace.serviceProfile?.let { cur ->
+                            marketplace.serviceProfile = cur.copy(isAvailable = available)
+                            onPersistVendor()
+                        }
                     },
                 )
             }
@@ -189,8 +215,13 @@ fun MyServicesScreen(
         visible = showCreateProfile,
         peekNextProfileId = marketplace::peekNextServiceProfileId,
         takeNextProfileId = marketplace::takeNextServiceProfileId,
+        defaultProviderName = accountNameForService,
+        initialServiceArea = initialServiceAreaForDialog,
         onDismiss = { showCreateProfile = false },
-        onSubmit = { marketplace.serviceProfile = it },
+        onSubmit = {
+            marketplace.serviceProfile = it
+            onPersistVendor()
+        },
     )
 
     AddServiceDialog(
@@ -209,6 +240,7 @@ fun MyServicesScreen(
             } else {
                 marketplace.servicePostList.add(post)
             }
+            onPersistVendor()
         },
     )
 }
@@ -258,6 +290,7 @@ private fun MyServicesContent(
     onEditService: (VendorServicePost) -> Unit,
     onActivate: (VendorServicePost) -> Unit,
     onDeactivate: (VendorServicePost) -> Unit,
+    onProfileAvailabilityChange: (Boolean) -> Unit,
 ) {
     LazyColumn(
         modifier = modifier.background(VendorUi.ScreenBg),
@@ -278,6 +311,7 @@ private fun MyServicesContent(
                     onActivate = { },
                     onDeactivate = { },
                     onEditService = onAddService,
+                    onProfileAvailabilityChange = onProfileAvailabilityChange,
                 )
             }
         } else {
@@ -288,6 +322,7 @@ private fun MyServicesContent(
                     onActivate = { onActivate(post) },
                     onDeactivate = { onDeactivate(post) },
                     onEditService = { onEditService(post) },
+                    onProfileAvailabilityChange = null,
                 )
             }
             item {
@@ -416,6 +451,7 @@ private fun VendorServicePrimaryCard(
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
     onEditService: () -> Unit,
+    onProfileAvailabilityChange: ((Boolean) -> Unit)?,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -496,6 +532,7 @@ private fun VendorServicePrimaryCard(
                 onActivate = onActivate,
                 onDeactivate = onDeactivate,
                 onEditService = onEditService,
+                onProfileAvailabilityChange = onProfileAvailabilityChange,
             )
         }
     }
@@ -508,10 +545,19 @@ private fun PrimaryServiceActionColumn(
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
     onEditService: () -> Unit,
+    onProfileAvailabilityChange: ((Boolean) -> Unit)?,
 ) {
     val context = LocalContext.current
     val hasPost = post != null
-    val isActive = post?.isActive == true
+    val workActive = if (hasPost) post!!.isActive else profile.isAvailable
+    val canToggleWork = hasPost || onProfileAvailabilityChange != null
+    val setWorkActive: (Boolean) -> Unit = { want ->
+        if (hasPost) {
+            if (want) onActivate() else onDeactivate()
+        } else {
+            onProfileAvailabilityChange?.invoke(want)
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -521,9 +567,9 @@ private fun PrimaryServiceActionColumn(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (!hasPost) {
+            if (!canToggleWork) {
                 OutlinedButton(
-                    onClick = onActivate,
+                    onClick = { },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -539,7 +585,7 @@ private fun PrimaryServiceActionColumn(
                     )
                 }
                 OutlinedButton(
-                    onClick = onDeactivate,
+                    onClick = { },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -554,9 +600,9 @@ private fun PrimaryServiceActionColumn(
                         color = VendorUi.TextMuted,
                     )
                 }
-            } else if (isActive) {
+            } else if (workActive) {
                 Button(
-                    onClick = onActivate,
+                    onClick = { setWorkActive(true) },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -571,7 +617,7 @@ private fun PrimaryServiceActionColumn(
                     )
                 }
                 OutlinedButton(
-                    onClick = onDeactivate,
+                    onClick = { setWorkActive(false) },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -587,7 +633,7 @@ private fun PrimaryServiceActionColumn(
                 }
             } else {
                 OutlinedButton(
-                    onClick = onActivate,
+                    onClick = { setWorkActive(true) },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -602,7 +648,7 @@ private fun PrimaryServiceActionColumn(
                     )
                 }
                 Button(
-                    onClick = onDeactivate,
+                    onClick = { setWorkActive(false) },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -649,7 +695,8 @@ private fun PrimaryServiceActionColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            enabled = isActive && profile.contactNumber.isNotBlank(),
+            enabled = profile.contactNumber.isNotBlank() &&
+                (if (hasPost) post!!.isActive else profile.isAvailable),
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, VendorUi.CardStroke),
             colors = ButtonDefaults.outlinedButtonColors(
@@ -695,19 +742,7 @@ private fun StatusChip(isActive: Boolean) {
 
 @Composable
 private fun ServiceThumb(uriString: String?) {
-    val context = LocalContext.current
-    val bitmap = remember(uriString) {
-        if (uriString.isNullOrBlank()) {
-            null
-        } else {
-            runCatching {
-                val uri = Uri.parse(uriString)
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream)
-                }
-            }.getOrNull()
-        }
-    }
+    val bitmap = rememberDecodedBitmap(uriString)
     Box(
         modifier = Modifier
             .size(72.dp)

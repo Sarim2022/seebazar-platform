@@ -21,7 +21,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,8 +35,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.data.KartEntry
 import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.data.UserCommerceFirestore
 import com.homeshop.seebazar.servicehome.VendorUi
 import com.homeshop.seebazar.ui.FormBottomSheetScaffold
 import com.homeshop.seebazar.ui.FormSheetPrimaryButton
@@ -47,17 +48,66 @@ private val ScreenBg = Color(0xFFF8FAFC)
 private val ChipSelectedBg = Color(0xFF1F2937)
 private val ChipUnselectedBg = Color(0xFFF3F4F6)
 
+private data class PrepaidSheetArgs(
+    val line: KartEntry,
+    val pickupTime: String,
+)
+
 @Composable
 fun UserKartScreen(
     modifier: Modifier = Modifier,
     marketplace: MarketplaceData,
 ) {
-    var showOrderDialog by remember { mutableStateOf(false) }
+    var pickupSheetLine by remember { mutableStateOf<KartEntry?>(null) }
+    var prepaidArgs by remember { mutableStateOf<PrepaidSheetArgs?>(null) }
 
     val context = LocalContext.current
+    val uid = FirebaseAuth.getInstance().currentUser?.uid
     val cart = marketplace.cartList
     val productLines = cart.filterIsInstance<KartEntry.ProductInCart>()
     val bookingLines = cart.filterIsInstance<KartEntry.BookingPending>()
+
+    fun finalizePostpaid(line: KartEntry, pickupTime: String) {
+        if (uid == null) {
+            Toast.makeText(context, "Please sign in again.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        UserCommerceFirestore.finalizeCheckout(
+            uid = uid,
+            marketplace = marketplace,
+            line = line,
+            pickupTime = pickupTime,
+            paymentType = "Postpaid",
+            paymentStatus = "Pending",
+        ) { err ->
+            if (err != null) {
+                Toast.makeText(context, "Could not save order.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Order confirmed", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun finalizePrepaidPaid(line: KartEntry, pickupTime: String) {
+        if (uid == null) {
+            Toast.makeText(context, "Please sign in again.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        UserCommerceFirestore.finalizeCheckout(
+            uid = uid,
+            marketplace = marketplace,
+            line = line,
+            pickupTime = pickupTime,
+            paymentType = "Prepaid",
+            paymentStatus = "Paid",
+        ) { err ->
+            if (err != null) {
+                Toast.makeText(context, "Could not save order.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Order confirmed", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -94,11 +144,10 @@ fun UserKartScreen(
                     title = line.product.name,
                     subtitle = "${line.product.brand} · ${line.product.mrpPrice} / ${line.product.unit}",
                     extra = line.product.description.takeIf { it.isNotBlank() },
+                    statusLine = "Status: ${line.orderStatus}",
                 ) {
                     Button(
-                        onClick = {
-                            showOrderDialog = true
-                        },
+                        onClick = { pickupSheetLine = line },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
                         shape = RoundedCornerShape(12.dp),
@@ -131,55 +180,80 @@ fun UserKartScreen(
                     title = r.venueName,
                     subtitle = "${r.date} · ${r.timeSlot}",
                     extra = r.instructions.takeIf { it.isNotBlank() },
+                    statusLine = "Status: ${line.orderStatus}",
                 ) {
                     Button(
-                        onClick = {
-                            Toast.makeText(
-                                context,
-                                "Order Confirmed.",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        },
+                        onClick = { pickupSheetLine = line },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        Text("Confirm")
+                        Text("Order it")
                     }
                 }
             }
         }
-        if (showOrderDialog) {
-            OrderConfirmDialog(
-                onDismiss = { showOrderDialog = false },
-                onOrderClick = { paymentType, pickupTime ->
+    }
 
-                    if (paymentType == "Prepaid") {
-                        Toast.makeText(context, "Payment done !", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "Order confirmed", Toast.LENGTH_SHORT).show()
-                    }
+    pickupSheetLine?.let { line ->
+        PickupPaymentBottomSheet(
+            onDismiss = { pickupSheetLine = null },
+            onPlacePostpaid = { pickup ->
+                pickupSheetLine = null
+                finalizePostpaid(line, pickup)
+            },
+            onContinuePrepaid = { pickup ->
+                pickupSheetLine = null
+                prepaidArgs = PrepaidSheetArgs(line, pickup)
+            },
+        )
+    }
 
-                    showOrderDialog = false
-                }
-            )
-        }
+    prepaidArgs?.let { args ->
+        PrepaidUpiBottomSheet(
+            shopName = args.line.vendorShopForPay(),
+            upiLine = formatVendorUpiLine(args.line.vendorShopForPay(), args.line.vendorUpiForPay()),
+            onDismiss = { prepaidArgs = null },
+            onPayIt = {
+                prepaidArgs = null
+                finalizePrepaidPaid(args.line, args.pickupTime)
+            },
+        )
     }
 }
+
+private fun KartEntry.vendorShopForPay(): String = when (this) {
+    is KartEntry.ProductInCart -> product.vendorShopName.ifBlank { product.brand }
+    is KartEntry.BookingPending -> reservation.vendorShopName
+}
+
+private fun KartEntry.vendorUpiForPay(): String = when (this) {
+    is KartEntry.ProductInCart -> product.vendorUpiId
+    is KartEntry.BookingPending -> reservation.vendorUpiId
+}
+
+private fun formatVendorUpiLine(shop: String, upi: String): String {
+    val u = upi.trim()
+    if (u.isEmpty()) return "${shop.ifBlank { "Vendor" }} — UPI not shared by vendor yet"
+    return if (u.contains('@')) "${shop.ifBlank { "Vendor" }} — $u" else "${shop.ifBlank { "vendor" }}@$u"
+}
+
 @Composable
-fun OrderConfirmDialog(
+private fun PickupPaymentBottomSheet(
     onDismiss: () -> Unit,
-    onOrderClick: (String, String) -> Unit,
+    onPlacePostpaid: (String) -> Unit,
+    onContinuePrepaid: (String) -> Unit,
 ) {
     var selectedPayment by remember { mutableStateOf("Prepaid") }
     var pickupTime by remember { mutableStateOf("") }
 
     FormBottomSheetScaffold(
         onDismiss = onDismiss,
-        title = "Confirm Order",
+        title = "Place order",
+        subtitle = "Choose payment and pickup time",
     ) {
         Text(
-            text = "Choose Payment Type",
+            text = "Payment type",
             style = MaterialTheme.typography.labelMedium,
             color = VendorUi.TextMuted,
         )
@@ -203,14 +277,60 @@ fun OrderConfirmDialog(
         }
         Spacer(modifier = Modifier.height(8.dp))
         FormSheetTextField(
-            label = "Pickup Time",
+            label = "Pickup time",
             value = pickupTime,
             onValueChange = { pickupTime = it },
-            placeholder = "Enter pickup time (e.g. 5:30 PM)",
+            placeholder = "e.g. Today 5:30 PM",
         )
         FormSheetPrimaryButton(
-            text = "Order",
-            onClick = { onOrderClick(selectedPayment, pickupTime) },
+            text = "Place order",
+            enabled = pickupTime.isNotBlank(),
+            onClick = {
+                if (selectedPayment == "Postpaid") {
+                    onPlacePostpaid(pickupTime.trim())
+                } else {
+                    onContinuePrepaid(pickupTime.trim())
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun PrepaidUpiBottomSheet(
+    shopName: String,
+    upiLine: String,
+    onDismiss: () -> Unit,
+    onPayIt: () -> Unit,
+) {
+    FormBottomSheetScaffold(
+        onDismiss = onDismiss,
+        title = "Pay vendor",
+        subtitle = "Send payment via UPI",
+    ) {
+        Text(
+            text = "Pay to",
+            style = MaterialTheme.typography.labelMedium,
+            color = VendorUi.TextMuted,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = upiLine,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = VendorUi.TextDark,
+        )
+        if (shopName.isNotBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = shopName,
+                style = MaterialTheme.typography.bodyMedium,
+                color = VendorUi.TextMuted,
+            )
+        }
+        FormSheetPrimaryButton(
+            text = "Pay it",
+            onClick = onPayIt,
         )
     }
 }
@@ -220,7 +340,7 @@ fun PaymentOptionChip(
     text: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier
@@ -251,6 +371,7 @@ private fun KartCard(
     title: String,
     subtitle: String,
     extra: String?,
+    statusLine: String,
     footer: @Composable () -> Unit,
 ) {
     Card(
@@ -282,6 +403,12 @@ private fun KartCard(
                     color = VendorUi.TextMuted,
                 )
             }
+            Text(
+                text = statusLine,
+                style = MaterialTheme.typography.labelMedium,
+                color = VendorUi.BrandBlue,
+                modifier = Modifier.padding(top = 8.dp),
+            )
             Spacer(modifier = Modifier.padding(vertical = 8.dp))
             footer()
         }

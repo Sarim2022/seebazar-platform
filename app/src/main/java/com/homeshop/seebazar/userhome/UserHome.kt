@@ -1,6 +1,11 @@
 package com.homeshop.seebazar.userhome
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
@@ -47,6 +52,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,8 +61,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.R
 import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.data.UserCommerceFirestore
+import com.homeshop.seebazar.data.UserMarketplaceCatalog
+import com.homeshop.seebazar.data.UserLocationPrefs
+import com.homeshop.seebazar.data.UserProfilePrefs
+import com.homeshop.seebazar.data.VendorLocationHelper
 import com.homeshop.seebazar.servicehome.smallcompose.InsightTabItem
 import com.homeshop.seebazar.ui.LogoutConfirmationDialog
 import kotlinx.coroutines.delay
@@ -108,6 +120,13 @@ fun UserHome(
     var showSettings by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
+    val userUid = FirebaseAuth.getInstance().currentUser?.uid
+    LaunchedEffect(userUid) {
+        if (userUid != null) {
+            UserCommerceFirestore.loadCartAndOrders(userUid, marketplace) { }
+        }
+    }
+
     BackHandler(enabled = showSettings) {
         showSettings = false
     }
@@ -158,11 +177,11 @@ fun UserHome(
                     .fillMaxSize()
                     .padding(paddingValues),
             )
-            3 -> UserPlaceholderScreen(
+            3 -> UserOrderStatusScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                title = "Order Status",
+                marketplace = marketplace,
             )
         }
     }
@@ -211,6 +230,60 @@ private fun UserHomeMainContent(
     marketplace: MarketplaceData,
     onProfileClick: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val catalogUid = FirebaseAuth.getInstance().currentUser?.uid
+    LaunchedEffect(catalogUid) {
+        if (catalogUid != null) {
+            UserMarketplaceCatalog.refreshFromFirestore(marketplace) { _ -> }
+        }
+    }
+    var locationRefreshTick by remember { mutableIntStateOf(0) }
+    val bumpLocationUi: () -> Unit = { locationRefreshTick += 1 }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result ->
+        val fineOk = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseOk = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        VendorLocationHelper.fetchAndPersist(
+            context,
+            fineOk || coarseOk,
+            onDone = bumpLocationUi,
+            prefsTarget = VendorLocationHelper.PrefsTarget.User,
+        )
+    }
+    val requestUserLocation: () -> Unit = {
+        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        if (fine || coarse) {
+            VendorLocationHelper.fetchAndPersist(
+                context,
+                true,
+                onDone = bumpLocationUi,
+                prefsTarget = VendorLocationHelper.PrefsTarget.User,
+            )
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ),
+            )
+        }
+    }
+    val userLocHeadline = remember(locationRefreshTick) {
+        UserLocationPrefs.city(context).ifBlank { "Home" }
+    }
+    val userLocSubtitle = remember(locationRefreshTick) {
+        UserLocationPrefs.displaySubtitle(context)
+    }
+    val accountDisplayName = UserProfilePrefs.cachedDisplayName(context).ifBlank {
+        FirebaseAuth.getInstance().currentUser?.displayName.orEmpty()
+    }
+    val userProfileLetter =
+        accountDisplayName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+
     var showUserSearch by remember { mutableStateOf(false) }
     var selectedInsightIndex by remember { mutableIntStateOf(0) }
 
@@ -270,7 +343,13 @@ private fun UserHomeMainContent(
                     .fillMaxWidth()
                     .background(brush = Brush.verticalGradient(colors = gradientColors)),
             ) {
-                UserHomeTopBar(onProfileClick = onProfileClick)
+                UserHomeTopBar(
+                    locationHeadline = userLocHeadline,
+                    locationSubtitle = userLocSubtitle,
+                    profileInitial = userProfileLetter,
+                    onLocationClick = requestUserLocation,
+                    onProfileClick = onProfileClick,
+                )
                 UserSearchBar(
                     onClick = { showUserSearch = true },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

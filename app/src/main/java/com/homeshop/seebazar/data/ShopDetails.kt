@@ -9,14 +9,6 @@ data class ShopDetails(
     val city: String,
     val postalCode: String,
     val isOpen: Boolean,
-)
-
-fun dummyShopDetails(): ShopDetails = ShopDetails(
-    shopName = "FreshMart Provisions",
-    vendorId = "VND-88421",
-    ownerName = "Ahmed Khan",
-    address = "Shop 4, Ground Floor, Riverside Plaza, 12 Market Street",
-    city = "Karachi",
-    postalCode = "75500",
-    isOpen = false,
+    /** UPI ID for prepaid checkout (e.g. merchant@paytm). */
+    val upiId: String = "",
 )

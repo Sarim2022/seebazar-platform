@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "504604690835",
+    "project_id": "seebazar-backend",
+    "storage_bucket": "seebazar-backend.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:504604690835:android:21b05dac5c9c3edddcc066",
+        "android_client_info": {
+          "package_name": "com.homeshop.seebazar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLZwzb-3Q8j2cLx5Wkh8_pVVVdE8YcgXI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

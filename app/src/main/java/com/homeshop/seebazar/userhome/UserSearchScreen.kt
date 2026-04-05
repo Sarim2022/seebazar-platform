@@ -45,8 +45,10 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.data.KartEntry
 import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.data.UserCommerceFirestore
 import com.homeshop.seebazar.servicehome.ReservationBusiness
 import com.homeshop.seebazar.servicehome.ReservationSlot
 
@@ -72,7 +74,6 @@ fun UserSearchScreen(
     }
 
     val trimmed = query.trim()
-    val business = marketplace.reservationPlaceList.firstOrNull()
     // Read lists directly so SnapshotStateList changes recompose (remember(keys) would miss item updates).
     val matchingProducts =
         if (trimmed.isEmpty()) emptyList()
@@ -80,14 +81,16 @@ fun UserSearchScreen(
     val matchingServices =
         if (trimmed.isEmpty()) emptyList()
         else marketplace.servicePostList.filter { it.isActive && it.title.contains(trimmed, ignoreCase = true) }
-    val matchingSlots =
+    val matchingReservationEntries =
         if (trimmed.isEmpty()) emptyList()
-        else marketplace.reservationSlotList.filter { slot ->
-            slot.isActive && slotMatchesName(slot, business, trimmed)
+        else marketplace.reservationBrowseList.filter { entry ->
+            entry.slot.isActive && slotMatchesName(entry.slot, entry.business, trimmed)
         }
+    val cartUid = FirebaseAuth.getInstance().currentUser?.uid
     val shopNameFallback = marketplace.shopList.firstOrNull()?.shopName.orEmpty()
     val hasAnyResults =
-        matchingProducts.isNotEmpty() || matchingServices.isNotEmpty() || matchingSlots.isNotEmpty()
+        matchingProducts.isNotEmpty() || matchingServices.isNotEmpty() ||
+            matchingReservationEntries.isNotEmpty()
 
     Column(
         modifier = modifier
@@ -213,6 +216,7 @@ fun UserSearchScreen(
                                             shopNameFallback = shopNameFallback,
                                             onAddToCart = {
                                                 marketplace.cartList.add(KartEntry.ProductInCart(product = product))
+                                                UserCommerceFirestore.notifyCartChanged(cartUid, marketplace)
                                             },
                                         )
                                     }
@@ -233,18 +237,25 @@ fun UserSearchScreen(
                             UserServiceCard(service = service)
                         }
                     }
-                    if (matchingSlots.isNotEmpty()) {
+                    if (matchingReservationEntries.isNotEmpty()) {
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
                             SearchSectionTitle("Bookings")
                             Spacer(modifier = Modifier.height(8.dp))
                         }
-                        items(matchingSlots, key = { it.id }) { slot ->
-                            val reservation = reservationSlotToVendorReservation(business, slot)
+                        items(matchingReservationEntries, key = { it.slot.id }) { entry ->
+                            val reservation = reservationSlotToVendorReservation(
+                                entry.business,
+                                entry.slot,
+                                sourceVendorId = entry.vendorUid,
+                                vendorShopName = entry.business?.businessName.orEmpty(),
+                                vendorUpiId = entry.vendorUpiId,
+                            )
                             UserReservationCard(
                                 reservation = reservation,
                                 onBook = {
                                     marketplace.cartList.add(KartEntry.BookingPending(reservation = reservation))
+                                    UserCommerceFirestore.notifyCartChanged(cartUid, marketplace)
                                 },
                             )
                         }

@@ -5,53 +5,56 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import com.homeshop.seebazar.R
-import com.homeshop.seebazar.servicehome.ProductCategory
 import com.homeshop.seebazar.servicehome.ReservationBusiness
 import com.homeshop.seebazar.servicehome.ReservationSlot
-import com.homeshop.seebazar.servicehome.ServiceChargesType
-import com.homeshop.seebazar.servicehome.ServiceProfession
 import com.homeshop.seebazar.servicehome.VendorProduct
 import com.homeshop.seebazar.servicehome.VendorReservation
 import com.homeshop.seebazar.servicehome.VendorServicePost
-import com.homeshop.seebazar.servicehome.VendorServicePostCategory
 import com.homeshop.seebazar.servicehome.VendorServiceProfile
 import java.util.UUID
 
+/** One bookable slot with its owning venue (user dashboard lists one row per pair). */
+data class ReservationBrowseEntry(
+    val business: ReservationBusiness,
+    val slot: ReservationSlot,
+    val vendorUid: String = "",
+    val vendorUpiId: String = "",
+)
+
 /**
- * Dummy marketplace state shared between vendor and user flows (same activity / navigation graph).
+ * In-memory marketplace state shared between vendor and user flows (backed by Firestore for vendors).
  */
 class MarketplaceData {
-    /** Dummy vendor shop row(s); index 0 powers the home top card. */
-    val shopList: SnapshotStateList<ShopDetails> = mutableStateListOf(dummyShopDetails())
+    val shopList: SnapshotStateList<ShopDetails> = mutableStateListOf()
 
-    val productList: SnapshotStateList<VendorProduct> = mutableStateListOf<VendorProduct>().apply {
-        val shopName = shopList.first().shopName
-        addAll(sampleVendorProducts(shopName))
-    }
-    /** Legacy list; user browse reads [reservationSlotList] + [reservationPlaceList] instead. */
+    val productList: SnapshotStateList<VendorProduct> = mutableStateListOf()
+
+    /** Legacy list; vendor UI uses [reservationPlaceList] + [reservationSlotList]. */
     val reservationList: SnapshotStateList<VendorReservation> = mutableStateListOf()
     /** At most one place in normal UI; stored as list for snapshot state. */
     val reservationPlaceList: SnapshotStateList<ReservationBusiness> = mutableStateListOf()
     val reservationSlotList: SnapshotStateList<ReservationSlot> = mutableStateListOf()
+    /** Aggregated rows for the buyer home / search (each slot tied to its vendor business). */
+    val reservationBrowseList: SnapshotStateList<ReservationBrowseEntry> = mutableStateListOf()
 
-    /** At most one service-provider profile in the dummy flow; seeded like [productList] for test mode. */
-    var serviceProfile: VendorServiceProfile? by mutableStateOf(dummyServiceProfile())
+    var serviceProfile: VendorServiceProfile? by mutableStateOf(null)
 
-    val servicePostList: SnapshotStateList<VendorServicePost> = mutableStateListOf<VendorServicePost>().apply {
-        addAll(sampleVendorServicePosts())
-    }
+    val servicePostList: SnapshotStateList<VendorServicePost> = mutableStateListOf()
+
+    /** Vendor wallet rows synced with Firestore [UserFirestore.FIELD_WALLET_VENDOR]. */
+    val walletVendorList: SnapshotStateList<String> = mutableStateListOf()
 
     /** Products added from the user Product tab; reservations added via "Book it". */
     val cartList: SnapshotStateList<KartEntry> = mutableStateListOf()
 
-    /** Next product id (101, 102, …) — shown in the add form before submit. */
-    private var nextProductId: Int = SAMPLE_PRODUCT_IDS_END_EXCLUSIVE
+    /** Completed orders (Firestore [UserFirestore.FIELD_MY_ORDER]). */
+    val myOrderList: SnapshotStateList<UserPlacedOrder> = mutableStateListOf()
+
+    private var nextProductId: Int = DEFAULT_NEXT_PRODUCT_ID
     private var nextReservationBusinessSeq: Int = 101
     private var nextReservationSlotSeq: Int = 201
-    /** After sample ids SRV-101 and POST-201…POST-203. */
-    private var nextServiceProfileSeq: Int = SAMPLE_SERVICE_PROFILE_SEQ_NEXT
-    private var nextServicePostSeq: Int = SAMPLE_SERVICE_POST_SEQ_NEXT
+    private var nextServiceProfileSeq: Int = 101
+    private var nextServicePostSeq: Int = 201
 
     fun peekNextServiceProfileId(): String = "SRV-$nextServiceProfileSeq"
 
@@ -88,161 +91,57 @@ class MarketplaceData {
         nextReservationSlotSeq++
         return id
     }
+
+    fun recomputeSequencesFromLoadedData() {
+        nextProductId = (productList.maxOfOrNull { it.id } ?: (DEFAULT_NEXT_PRODUCT_ID - 1)) + 1
+        nextServiceProfileSeq = serviceProfile?.id?.removePrefix("SRV-")?.toIntOrNull()?.plus(1) ?: 101
+        nextServicePostSeq = (servicePostList.mapNotNull { it.id.removePrefix("POST-").toIntOrNull() }.maxOrNull()
+            ?: (DEFAULT_NEXT_SERVICE_POST_SEQ - 1)) + 1
+        nextReservationBusinessSeq = reservationPlaceList.firstOrNull()?.id
+            ?.removePrefix("RES-")?.toIntOrNull()?.plus(1) ?: 101
+        nextReservationSlotSeq = (reservationSlotList.mapNotNull {
+            it.id.removePrefix("SLOT-").toIntOrNull()
+        }.maxOrNull() ?: 200) + 1
+    }
+
+    /** Clears vendor inventory and browse lists (e.g. user login or logout). */
+    fun resetForUserSession() {
+        shopList.clear()
+        productList.clear()
+        reservationList.clear()
+        reservationPlaceList.clear()
+        reservationSlotList.clear()
+        reservationBrowseList.clear()
+        serviceProfile = null
+        servicePostList.clear()
+        walletVendorList.clear()
+        cartList.clear()
+        myOrderList.clear()
+        nextProductId = DEFAULT_NEXT_PRODUCT_ID
+        nextReservationBusinessSeq = 101
+        nextReservationSlotSeq = 201
+        nextServiceProfileSeq = 101
+        nextServicePostSeq = DEFAULT_NEXT_SERVICE_POST_SEQ
+    }
 }
 
 sealed class KartEntry {
     abstract val lineId: String
+    abstract val orderStatus: String
 
     data class ProductInCart(
         val product: VendorProduct,
         override val lineId: String = UUID.randomUUID().toString(),
+        override val orderStatus: String = "Pending",
     ) : KartEntry()
 
     data class BookingPending(
         val reservation: VendorReservation,
         override val lineId: String = UUID.randomUUID().toString(),
+        override val orderStatus: String = "Pending",
     ) : KartEntry()
 }
 
-private const val SAMPLE_PRODUCT_IDS_END_EXCLUSIVE = 107
+private const val DEFAULT_NEXT_PRODUCT_ID = 101
 
-private const val SAMPLE_SERVICE_PROFILE_SEQ_NEXT = 102
-
-private const val SAMPLE_SERVICE_POST_SEQ_NEXT = 204
-
-private fun dummyServiceProfile(): VendorServiceProfile = VendorServiceProfile(
-    id = "SRV-101",
-    providerName = "Ahmad Electric",
-    profession = ServiceProfession.Electrician,
-    experienceYears = "8",
-    serviceArea = "Karachi · DHA & Clifton",
-    contactNumber = "+92 300 1234567",
-    shortDescription = "Licensed electrician — wiring, fixtures, DB work, emergency callouts.",
-    chargesType = ServiceChargesType.PerVisit,
-    baseCharge = "Rs 1,500",
-    imageUri = null,
-    isAvailable = true,
-)
-
-private fun sampleVendorServicePosts(): List<VendorServicePost> = listOf(
-    VendorServicePost(
-        id = "POST-201",
-        title = "Fan & light installation",
-        category = VendorServicePostCategory.Installation,
-        description = "Ceiling fans, LED panels, switches, and basic fittings.",
-        price = "Rs 800 onwards",
-        estimatedTime = "45 min – 2 hrs",
-        emergencyAvailable = false,
-        imageUri = null,
-        isActive = true,
-    ),
-    VendorServicePost(
-        id = "POST-202",
-        title = "Short circuit / trip fix",
-        category = VendorServicePostCategory.Repair,
-        description = "DB check, faulty wiring trace, and safe repair.",
-        price = "Rs 1,200 onwards",
-        estimatedTime = "1–3 hrs",
-        emergencyAvailable = true,
-        imageUri = null,
-        isActive = true,
-    ),
-    VendorServicePost(
-        id = "POST-203",
-        title = "Full home wiring inspection",
-        category = VendorServicePostCategory.Inspection,
-        description = "Safety inspection with written notes and quote for fixes.",
-        price = "Rs 2,500",
-        estimatedTime = "2–4 hrs",
-        emergencyAvailable = false,
-        imageUri = null,
-        isActive = true,
-    ),
-)
-
-private fun sampleVendorProducts(shopName: String): List<VendorProduct> = listOf(
-    VendorProduct(
-        id = 101,
-        name = "Milk",
-        description = "Fresh full-cream milk.",
-        mrpPrice = "Rs 220",
-        imageUri = null,
-        brand = "Dairy Best",
-        category = ProductCategory.Grocery,
-        unit = "1 L",
-        shelfLife = "3 days",
-        quantityLeft = "40",
-        imageDrawableRes = R.drawable.milk,
-        vendorShopName = shopName,
-    ),
-    VendorProduct(
-        id = 102,
-        name = "Thums Up",
-        description = "Chilled soft drink.",
-        mrpPrice = "Rs 95",
-        imageUri = null,
-        brand = "Thums Up",
-        category = ProductCategory.Drinks,
-        unit = "500 ml",
-        shelfLife = "9 months",
-        quantityLeft = "120",
-        imageDrawableRes = R.drawable.thumsup,
-        vendorShopName = shopName,
-    ),
-    VendorProduct(
-        id = 103,
-        name = "Chipslays",
-        description = "Crispy potato chips.",
-        mrpPrice = "Rs 60",
-        imageUri = null,
-        brand = "Chipslays",
-        category = ProductCategory.Snacks,
-        unit = "52 g",
-        shelfLife = "6 months",
-        quantityLeft = "80",
-        imageDrawableRes = R.drawable.chipslays,
-        vendorShopName = shopName,
-    ),
-    VendorProduct(
-        id = 104,
-        name = "Curd",
-        description = "Fresh set curd.",
-        mrpPrice = "Rs 140",
-        imageUri = null,
-        brand = "Farm Fresh",
-        category = ProductCategory.Grocery,
-        unit = "500 g",
-        shelfLife = "2 days",
-        quantityLeft = "25",
-        imageDrawableRes = R.drawable.curd,
-        vendorShopName = shopName,
-    ),
-    VendorProduct(
-        id = 105,
-        name = "Coffee",
-        description = "Instant coffee jar.",
-        mrpPrice = "Rs 890",
-        imageUri = null,
-        brand = "Classic Roast",
-        category = ProductCategory.Drinks,
-        unit = "200 g",
-        shelfLife = "18 months",
-        quantityLeft = "15",
-        imageDrawableRes = R.drawable.coffee,
-        vendorShopName = shopName,
-    ),
-    VendorProduct(
-        id = 106,
-        name = "Maggi",
-        description = "Instant noodles masala.",
-        mrpPrice = "Rs 28",
-        imageUri = null,
-        brand = "Maggi",
-        category = ProductCategory.DryItems,
-        unit = "70 g",
-        shelfLife = "8 months",
-        quantityLeft = "200",
-        imageDrawableRes = R.drawable.maggii,
-        vendorShopName = shopName,
-    ),
-)
+private const val DEFAULT_NEXT_SERVICE_POST_SEQ = 201

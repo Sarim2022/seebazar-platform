@@ -44,6 +44,7 @@ fun ShopDetailsScreen(
     shops: SnapshotStateList<ShopDetails>,
     shopIndex: Int,
     onBack: () -> Unit,
+    onPersistVendor: () -> Unit = {},
 ) {
     val shop = shops.getOrNull(shopIndex)
     if (shop == null) {
@@ -58,6 +59,7 @@ fun ShopDetailsScreen(
     var city by remember(shop) { mutableStateOf(shop.city) }
     var postalCode by remember(shop) { mutableStateOf(shop.postalCode) }
     var isOpen by remember(shop) { mutableStateOf(shop.isOpen) }
+    var upiId by remember(shop) { mutableStateOf(shop.upiId) }
 
     Scaffold(
         topBar = {
@@ -135,6 +137,14 @@ fun ShopDetailsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
+            OutlinedTextField(
+                value = upiId,
+                onValueChange = { upiId = it },
+                label = { Text("UPI ID (for prepaid)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("e.g. shopname@paytm") },
+            )
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -175,7 +185,9 @@ fun ShopDetailsScreen(
                         city = city.trim(),
                         postalCode = postalCode.trim(),
                         isOpen = isOpen,
+                        upiId = upiId.trim(),
                     )
+                    onPersistVendor()
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth(),

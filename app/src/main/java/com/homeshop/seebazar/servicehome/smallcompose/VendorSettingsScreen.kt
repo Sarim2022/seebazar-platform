@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.History
@@ -89,6 +90,7 @@ object VendorSettingsMenuIds {
     const val AboutApp = "about_app"
 
     const val Logout = "logout"
+    const val DeleteVendorAccount = "delete_vendor_account"
 }
 
 private val vendorSettingsSections = listOf(
@@ -377,7 +379,15 @@ fun VendorSettingsScreen(
             }
             item {
                 VendorSettingsGroupedCard(
-                    rows = listOf(logoutRow),
+                    rows = listOf(
+                        VendorSettingsRow(
+                            id = VendorSettingsMenuIds.DeleteVendorAccount,
+                            title = "Delete vendor account",
+                            icon = Icons.Outlined.DeleteForever,
+                            isDestructive = true,
+                        ),
+                        logoutRow,
+                    ),
                     onRowClick = onMenuItemClick,
                 )
             }

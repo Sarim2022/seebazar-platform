@@ -1,7 +1,5 @@
 package com.homeshop.seebazar.userhome
 
-import android.graphics.BitmapFactory
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -27,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,14 +36,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.data.KartEntry
 import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.data.UserCommerceFirestore
 import com.homeshop.seebazar.servicehome.ReservationBusiness
 import com.homeshop.seebazar.servicehome.ReservationSlot
 import com.homeshop.seebazar.servicehome.VendorProduct
 import com.homeshop.seebazar.servicehome.VendorReservation
 import com.homeshop.seebazar.servicehome.VendorServicePost
 import com.homeshop.seebazar.servicehome.VendorUi
+import com.homeshop.seebazar.ui.rememberDecodedBitmap
 
 private val CallChatGreyBg = Color(0xFFE5E7EB)
 private val CallChatGreyFg = Color(0xFF374151)
@@ -58,6 +58,7 @@ fun UserBrowseProductsPanel(
     marketplace: MarketplaceData,
     modifier: Modifier = Modifier,
 ) {
+    val cartUid = FirebaseAuth.getInstance().currentUser?.uid
     val products = marketplace.productList
     if (products.isEmpty()) {
         EmptyBrowseMessage(
@@ -83,6 +84,7 @@ fun UserBrowseProductsPanel(
                             shopNameFallback = marketplace.shopList.firstOrNull()?.shopName.orEmpty(),
                             onAddToCart = {
                                 marketplace.cartList.add(KartEntry.ProductInCart(product = product))
+                                UserCommerceFirestore.notifyCartChanged(cartUid, marketplace)
                             },
                         )
                     }
@@ -96,12 +98,15 @@ fun UserBrowseProductsPanel(
 }
 
 /**
- * Vendor posts live in [MarketplaceData.reservationPlaceList] + [MarketplaceData.reservationSlotList];
- * we map active slots here so the same data appears on the user Reservations tab (test mode).
+ * Buyer home uses [MarketplaceData.reservationBrowseList] (one venue + slot per row).
+ * [reservationSlotToVendorReservation] builds the card model from that pair.
  */
 internal fun reservationSlotToVendorReservation(
     business: ReservationBusiness?,
     slot: ReservationSlot,
+    sourceVendorId: String = "",
+    vendorShopName: String = "",
+    vendorUpiId: String = "",
 ): VendorReservation {
     val venueName = when {
         business != null -> "${business.businessName} · ${slot.title}"
@@ -122,6 +127,7 @@ internal fun reservationSlotToVendorReservation(
         add("${slot.category.displayLabel} · ${slot.bookingType.displayLabel}")
         if (slot.totalAvailable.isNotBlank()) add("Spots: ${slot.totalAvailable}")
     }
+    val shop = vendorShopName.ifBlank { business?.businessName.orEmpty() }
     return VendorReservation(
         venueName = venueName,
         date = date,
@@ -129,6 +135,9 @@ internal fun reservationSlotToVendorReservation(
         numPeople = slot.capacity.ifBlank { "—" },
         instructions = detailLines.joinToString("\n"),
         price = slot.price,
+        vendorShopName = shop,
+        sourceVendorId = sourceVendorId,
+        vendorUpiId = vendorUpiId,
     )
 }
 
@@ -137,9 +146,9 @@ fun UserBrowseReservationsPanel(
     marketplace: MarketplaceData,
     modifier: Modifier = Modifier,
 ) {
-    val business = marketplace.reservationPlaceList.firstOrNull()
-    val activeSlots = marketplace.reservationSlotList.filter { it.isActive }
-    if (activeSlots.isEmpty()) {
+    val cartUid = FirebaseAuth.getInstance().currentUser?.uid
+    val entries = marketplace.reservationBrowseList
+    if (entries.isEmpty()) {
         EmptyBrowseMessage(
             text = "No reservations available yet.",
             modifier = modifier,
@@ -150,12 +159,19 @@ fun UserBrowseReservationsPanel(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        activeSlots.forEach { slot ->
-            val reservation = reservationSlotToVendorReservation(business, slot)
+        entries.forEach { entry ->
+            val reservation = reservationSlotToVendorReservation(
+                entry.business,
+                entry.slot,
+                sourceVendorId = entry.vendorUid,
+                vendorShopName = entry.business?.businessName.orEmpty(),
+                vendorUpiId = entry.vendorUpiId,
+            )
             UserReservationCard(
                 reservation = reservation,
                 onBook = {
                     marketplace.cartList.add(KartEntry.BookingPending(reservation = reservation))
+                    UserCommerceFirestore.notifyCartChanged(cartUid, marketplace)
                 },
             )
         }
@@ -263,21 +279,8 @@ private fun UserProductSquareImage(
     product: VendorProduct,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val resId = product.imageDrawableRes?.takeIf { it != 0 }
-    val bitmap = remember(product.imageUri) {
-        val uriString = product.imageUri
-        if (uriString.isNullOrBlank()) {
-            null
-        } else {
-            runCatching {
-                val uri = Uri.parse(uriString)
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream)
-                }
-            }.getOrNull()
-        }
-    }
+    val bitmap = rememberDecodedBitmap(product.imageUri)
     Box(
         modifier = modifier.background(Color(0xFFF1F5F9)),
         contentAlignment = Alignment.Center,

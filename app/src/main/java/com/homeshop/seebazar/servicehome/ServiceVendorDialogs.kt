@@ -44,6 +44,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.homeshop.seebazar.data.ShopDetails
 import com.homeshop.seebazar.ui.FormBottomSheetScaffold
 import com.homeshop.seebazar.ui.FormSheetDividerColor
 import com.homeshop.seebazar.ui.FormSheetPrimaryButton
@@ -58,16 +59,132 @@ private val SheetMenuTextStyle = TextStyle(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun CreateShopAccountDialog(
+    visible: Boolean,
+    suggestedVendorId: String,
+    defaultOwnerName: String,
+    initialAddress: String,
+    initialCity: String,
+    initialPostalCode: String,
+    onDismiss: () -> Unit,
+    onSubmit: (ShopDetails) -> Unit,
+) {
+    if (!visible) return
+
+    var shopName by remember { mutableStateOf("") }
+    var vendorId by remember { mutableStateOf(suggestedVendorId) }
+    var address by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var postalCode by remember { mutableStateOf("") }
+    var isOpen by remember { mutableStateOf(false) }
+    var formError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(visible, suggestedVendorId, initialAddress, initialCity, initialPostalCode) {
+        if (!visible) return@LaunchedEffect
+        formError = null
+        shopName = ""
+        vendorId = suggestedVendorId
+        address = initialAddress
+        city = initialCity
+        postalCode = initialPostalCode
+        isOpen = false
+    }
+
+    FormBottomSheetScaffold(
+        onDismiss = onDismiss,
+        title = "Create shop account",
+        subtitle = "Owner name comes from your account (${defaultOwnerName.trim().ifBlank { "—" }}).",
+    ) {
+        FormSheetTextField(
+            label = "Shop name *",
+            value = shopName,
+            onValueChange = { shopName = it },
+        )
+        FormSheetTextField(
+            label = "Vendor ID *",
+            value = vendorId,
+            onValueChange = { vendorId = it },
+        )
+        FormSheetTextField(
+            label = "Address *",
+            value = address,
+            onValueChange = { address = it },
+            singleLine = false,
+        )
+        FormSheetTextField(
+            label = "City *",
+            value = city,
+            onValueChange = { city = it },
+        )
+        FormSheetTextField(
+            label = "Postal code *",
+            value = postalCode,
+            onValueChange = { postalCode = it },
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = if (isOpen) "Shop open" else "Shop closed",
+                style = MaterialTheme.typography.bodyLarge,
+                color = VendorUi.TextDark,
+            )
+            Switch(
+                checked = isOpen,
+                onCheckedChange = { isOpen = it },
+            )
+        }
+        formError?.let { err ->
+            Text(
+                text = err,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        val owner = defaultOwnerName.trim()
+        val canSave = shopName.isNotBlank() && vendorId.isNotBlank() && owner.isNotBlank() &&
+            address.isNotBlank() && city.isNotBlank() && postalCode.isNotBlank()
+        FormSheetPrimaryButton(
+            text = "Save shop",
+            enabled = canSave,
+            onClick = {
+                formError = null
+                if (!canSave) {
+                    formError = "Please fill all required fields."
+                    return@FormSheetPrimaryButton
+                }
+                onSubmit(
+                    ShopDetails(
+                        shopName = shopName.trim(),
+                        vendorId = vendorId.trim(),
+                        ownerName = owner,
+                        address = address.trim(),
+                        city = city.trim(),
+                        postalCode = postalCode.trim(),
+                        isOpen = isOpen,
+                    ),
+                )
+                onDismiss()
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun CreateServiceProfileDialog(
     visible: Boolean,
     peekNextProfileId: () -> String,
     takeNextProfileId: () -> String,
+    defaultProviderName: String,
+    initialServiceArea: String,
     onDismiss: () -> Unit,
     onSubmit: (VendorServiceProfile) -> Unit,
 ) {
     if (!visible) return
 
-    var providerName by remember { mutableStateOf("") }
     var profession by remember { mutableStateOf(ServiceProfession.Electrician) }
     var experienceYears by remember { mutableStateOf("") }
     var serviceArea by remember { mutableStateOf("") }
@@ -88,13 +205,12 @@ fun CreateServiceProfileDialog(
         imageUri = uri?.toString()
     }
 
-    LaunchedEffect(visible) {
+    LaunchedEffect(visible, initialServiceArea) {
         if (!visible) return@LaunchedEffect
         formError = null
-        providerName = ""
         profession = ServiceProfession.Electrician
         experienceYears = ""
-        serviceArea = ""
+        serviceArea = initialServiceArea
         contactNumber = ""
         shortDescription = ""
         chargesType = ServiceChargesType.PerVisit
@@ -121,18 +237,13 @@ fun CreateServiceProfileDialog(
     FormBottomSheetScaffold(
         onDismiss = onDismiss,
         title = "Create Service Profile",
-        subtitle = "Service Profile ID is assigned when you save.",
+        subtitle = "Provider: ${defaultProviderName.trim().ifBlank { "—" }} · ID is assigned when you save.",
     ) {
         FormSheetTextField(
             label = "Service Profile ID",
             value = displayedId,
             onValueChange = {},
             readOnly = true,
-        )
-        FormSheetTextField(
-            label = "Provider name *",
-            value = providerName,
-            onValueChange = { providerName = it },
         )
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
             Text(
@@ -281,7 +392,8 @@ fun CreateServiceProfileDialog(
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        val canSave = providerName.isNotBlank() && experienceYears.isNotBlank() &&
+        val provider = defaultProviderName.trim()
+        val canSave = provider.isNotBlank() && experienceYears.isNotBlank() &&
             serviceArea.isNotBlank() && contactNumber.isNotBlank() &&
             shortDescription.isNotBlank() && baseCharge.isNotBlank()
         FormSheetPrimaryButton(
@@ -297,7 +409,7 @@ fun CreateServiceProfileDialog(
                 onSubmit(
                     VendorServiceProfile(
                         id = id,
-                        providerName = providerName.trim(),
+                        providerName = provider,
                         profession = profession,
                         experienceYears = experienceYears.trim(),
                         serviceArea = serviceArea.trim(),

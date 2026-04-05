@@ -1,7 +1,5 @@
 package com.homeshop.seebazar.servicehome.cardsfeature
 
-import android.graphics.BitmapFactory
-import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,20 +34,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.homeshop.seebazar.servicehome.VendorProduct
 import com.homeshop.seebazar.servicehome.VendorUi
+import com.homeshop.seebazar.ui.rememberDecodedBitmap
 
 private val WindowInsetsZero = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
 
@@ -330,19 +327,7 @@ private fun StatusChip(isActive: Boolean) {
 
 @Composable
 private fun ProductThumb(uriString: String?, drawableRes: Int?) {
-    val context = LocalContext.current
-    val bitmap = remember(uriString) {
-        if (uriString.isNullOrBlank()) {
-            null
-        } else {
-            runCatching {
-                val uri = Uri.parse(uriString)
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream)
-                }
-            }.getOrNull()
-        }
-    }
+    val bitmap = rememberDecodedBitmap(uriString)
     val resId = drawableRes?.takeIf { it != 0 }
     Box(
         modifier = Modifier
