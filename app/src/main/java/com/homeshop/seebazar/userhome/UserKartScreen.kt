@@ -39,6 +39,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.data.KartEntry
 import com.homeshop.seebazar.data.MarketplaceData
 import com.homeshop.seebazar.data.UserCommerceFirestore
+import com.homeshop.seebazar.data.UserProfilePrefs
 import com.homeshop.seebazar.servicehome.VendorUi
 import com.homeshop.seebazar.ui.FormBottomSheetScaffold
 import com.homeshop.seebazar.ui.FormSheetPrimaryButton
@@ -63,6 +64,10 @@ fun UserKartScreen(
 
     val context = LocalContext.current
     val uid = FirebaseAuth.getInstance().currentUser?.uid
+    val buyerName = UserProfilePrefs.cachedDisplayName(context).ifBlank {
+        FirebaseAuth.getInstance().currentUser?.displayName.orEmpty()
+    }
+    val buyerEmail = FirebaseAuth.getInstance().currentUser?.email.orEmpty()
     val cart = marketplace.cartList
     val productLines = cart.filterIsInstance<KartEntry.ProductInCart>()
     val bookingLines = cart.filterIsInstance<KartEntry.BookingPending>()
@@ -79,6 +84,8 @@ fun UserKartScreen(
             pickupTime = pickupTime,
             paymentType = "Postpaid",
             paymentStatus = "Pending",
+            buyerName = buyerName,
+            buyerEmail = buyerEmail,
         ) { err ->
             if (err != null) {
                 Toast.makeText(context, "Could not save order.", Toast.LENGTH_SHORT).show()
@@ -100,6 +107,8 @@ fun UserKartScreen(
             pickupTime = pickupTime,
             paymentType = "Prepaid",
             paymentStatus = "Paid",
+            buyerName = buyerName,
+            buyerEmail = buyerEmail,
         ) { err ->
             if (err != null) {
                 Toast.makeText(context, "Could not save order.", Toast.LENGTH_SHORT).show()

@@ -26,6 +26,12 @@ object UserFirestore {
     const val FIELD_MY_KART = "MyKart"
     /** Buyer completed orders. */
     const val FIELD_MY_ORDER = "MyOrder"
+    /** Vendor mirror of incoming orders (denormalized maps; canonical rows in [OrderFirestore]). */
+    const val FIELD_VENDOR_ORDERS = "VendorOrders"
+    /** Buyer: completed orders archive (maps), appended when vendor marks order done. */
+    const val FIELD_USER_ORDER_HISTORY = "userOrderHistory"
+    /** Vendor: completed orders archive (maps). */
+    const val FIELD_VENDOR_ORDER_HISTORY = "vendorOrderHistory"
 
     fun usersCollection() = FirebaseFirestore.getInstance().collection(COLLECTION_USERS)
 }

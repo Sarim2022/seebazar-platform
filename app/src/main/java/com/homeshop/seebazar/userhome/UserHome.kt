@@ -36,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,6 +54,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -63,7 +65,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.R
+import com.homeshop.seebazar.data.ChatFirestore
 import com.homeshop.seebazar.data.MarketplaceData
+import com.homeshop.seebazar.data.OrderFirestore
 import com.homeshop.seebazar.data.UserCommerceFirestore
 import com.homeshop.seebazar.data.UserMarketplaceCatalog
 import com.homeshop.seebazar.data.UserLocationPrefs
@@ -116,9 +120,26 @@ fun UserHome(
     marketplace: MarketplaceData,
     onLogout: () -> Unit = {},
 ) {
+    val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var userLocationBump by remember { mutableIntStateOf(0) }
+    var pendingChatRoomId by remember { mutableStateOf<String?>(null) }
+    var pendingChatTitle by remember { mutableStateOf("") }
+
+    val loginLocationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result ->
+        val fineOk = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseOk = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        VendorLocationHelper.fetchAndPersist(
+            context,
+            fineOk || coarseOk,
+            onDone = { userLocationBump++ },
+            prefsTarget = VendorLocationHelper.PrefsTarget.User,
+        )
+    }
 
     val userUid = FirebaseAuth.getInstance().currentUser?.uid
     LaunchedEffect(userUid) {
@@ -126,9 +147,73 @@ fun UserHome(
             UserCommerceFirestore.loadCartAndOrders(userUid, marketplace) { }
         }
     }
+    LaunchedEffect(userUid) {
+        if (userUid == null) return@LaunchedEffect
+        delay(600)
+        val hasLoc = UserLocationPrefs.city(context).isNotBlank() ||
+            UserLocationPrefs.displaySubtitle(context).isNotBlank()
+        if (hasLoc) return@LaunchedEffect
+        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        if (fine || coarse) {
+            VendorLocationHelper.fetchAndPersist(
+                context,
+                true,
+                onDone = { userLocationBump++ },
+                prefsTarget = VendorLocationHelper.PrefsTarget.User,
+            )
+        } else {
+            loginLocationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ),
+            )
+        }
+    }
+    DisposableEffect(userUid) {
+        if (userUid == null) {
+            marketplace.myOrderList.clear()
+            return@DisposableEffect onDispose { }
+        }
+        val reg = OrderFirestore.listenBuyerOrders(userUid) { orders ->
+            marketplace.myOrderList.clear()
+            marketplace.myOrderList.addAll(orders)
+        }
+        onDispose { reg.remove() }
+    }
 
     BackHandler(enabled = showSettings) {
         showSettings = false
+    }
+
+    val startVendorChat: (String, String) -> Unit = { vendorUid, headline ->
+        val buyer = FirebaseAuth.getInstance().currentUser?.uid
+        if (buyer.isNullOrBlank()) {
+            Toast.makeText(context, "Sign in to chat", Toast.LENGTH_SHORT).show()
+        } else {
+            ChatFirestore.ensureChatRoom(
+                vendorUid = vendorUid,
+                buyerUid = buyer,
+                vendorLabelHint = headline,
+                buyerLabelHint = FirebaseAuth.getInstance().currentUser?.displayName.orEmpty()
+                    .ifBlank { FirebaseAuth.getInstance().currentUser?.email.orEmpty() },
+            ) { roomId, err ->
+                if (err != null) {
+                    Toast.makeText(
+                        context,
+                        err.localizedMessage ?: "Could not open chat",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                } else if (roomId != null) {
+                    pendingChatRoomId = roomId
+                    pendingChatTitle = headline
+                    selectedTab = 2
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -163,6 +248,8 @@ fun UserHome(
                             .padding(paddingValues),
                         marketplace = marketplace,
                         onProfileClick = { showSettings = true },
+                        remoteLocationBump = userLocationBump,
+                        onChatWithVendor = startVendorChat,
                     )
                 }
             }
@@ -176,6 +263,12 @@ fun UserHome(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
+                pendingOpenRoomId = pendingChatRoomId,
+                pendingOpenTitle = pendingChatTitle,
+                onConsumedPendingOpen = {
+                    pendingChatRoomId = null
+                    pendingChatTitle = ""
+                },
             )
             3 -> UserOrderStatusScreen(
                 modifier = Modifier
@@ -229,6 +322,8 @@ private fun UserHomeMainContent(
     modifier: Modifier = Modifier,
     marketplace: MarketplaceData,
     onProfileClick: () -> Unit,
+    remoteLocationBump: Int = 0,
+    onChatWithVendor: (vendorUid: String, headline: String) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     val catalogUid = FirebaseAuth.getInstance().currentUser?.uid
@@ -272,10 +367,10 @@ private fun UserHomeMainContent(
             )
         }
     }
-    val userLocHeadline = remember(locationRefreshTick) {
+    val userLocHeadline = remember(locationRefreshTick, remoteLocationBump) {
         UserLocationPrefs.city(context).ifBlank { "Home" }
     }
-    val userLocSubtitle = remember(locationRefreshTick) {
+    val userLocSubtitle = remember(locationRefreshTick, remoteLocationBump) {
         UserLocationPrefs.displaySubtitle(context)
     }
     val accountDisplayName = UserProfilePrefs.cachedDisplayName(context).ifBlank {
@@ -292,6 +387,10 @@ private fun UserHomeMainContent(
             marketplace = marketplace,
             onBack = { showUserSearch = false },
             modifier = modifier,
+            onChatWithVendor = { uid, title ->
+                showUserSearch = false
+                onChatWithVendor(uid, title)
+            },
         )
         return
     }
@@ -361,6 +460,7 @@ private fun UserHomeMainContent(
                 marketplace = marketplace,
                 selectedIndex = selectedInsightIndex,
                 onTabSelected = { selectedInsightIndex = it },
+                onChatWithVendor = onChatWithVendor,
             )
         }
     }
@@ -373,6 +473,7 @@ private fun UserHomeInsightSection(
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    onChatWithVendor: (vendorUid: String, headline: String) -> Unit = { _, _ -> },
 ) {
     val category = userInsightTabs[selectedIndex].category
 
@@ -423,6 +524,7 @@ private fun UserHomeInsightSection(
                 UserBrowseCategory.Services -> UserBrowseServicesPanel(
                     marketplace = marketplace,
                     modifier = Modifier.fillMaxWidth(),
+                    onChatWithVendor = onChatWithVendor,
                 )
             }
         }

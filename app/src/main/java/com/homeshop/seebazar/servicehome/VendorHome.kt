@@ -52,12 +52,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,6 +72,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.Surface
 import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.R
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.homeshop.seebazar.data.MarketplaceData
 import com.homeshop.seebazar.data.UserFirestore
 import com.homeshop.seebazar.data.VendorFirestoreSync
@@ -108,9 +109,23 @@ fun VendorHome(
     onVendorAccountDeleted: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val scanViewModel = viewModel<VendorScanViewModel>()
+    val receiptOrder by scanViewModel.receiptOrder.collectAsStateWithLifecycle()
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview(),
-    ) { /* preview only — no further processing */ }
+    ) { bitmap ->
+        if (bitmap == null) return@rememberLauncherForActivityResult
+        scanQrFromCameraBitmap(bitmap) { raw ->
+            val vUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+            scanViewModel.processCameraQrText(
+                raw = raw,
+                vendorUid = vUid,
+                onUserMessage = { msg ->
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                },
+            )
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -394,7 +409,10 @@ fun VendorHome(
                     }
                 }
             }
-            1 -> OrdersScreen(modifier = contentModifier)
+            1 -> OrdersScreen(
+                modifier = contentModifier,
+                vendorUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty(),
+            )
             2 -> VendorScanPlaceholder(
                 modifier = contentModifier,
                 onOpenCamera = openCameraPreview,
@@ -412,6 +430,15 @@ fun VendorHome(
                 showSettings = false
                 onLogout()
             },
+        )
+    }
+
+    receiptOrder?.let { order ->
+        VendorOrderReceiptBottomSheet(
+            order = order,
+            vendorUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty(),
+            onDismiss = { scanViewModel.dismissReceipt() },
+            onMarkedDone = { scanViewModel.dismissReceipt() },
         )
     }
 
@@ -778,7 +805,7 @@ private fun VendorScanPlaceholder(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Open the camera to preview only.",
+            text = "Take a photo of the customer's order QR from their Order status screen.",
             style = MaterialTheme.typography.bodyMedium,
             color = VendorUi.TextMuted,
         )

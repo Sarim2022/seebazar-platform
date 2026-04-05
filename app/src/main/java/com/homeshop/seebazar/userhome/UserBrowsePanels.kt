@@ -182,7 +182,9 @@ fun UserBrowseReservationsPanel(
 fun UserBrowseServicesPanel(
     marketplace: MarketplaceData,
     modifier: Modifier = Modifier,
+    onChatWithVendor: (vendorUid: String, headline: String) -> Unit = { _, _ -> },
 ) {
+    val context = LocalContext.current
     val services = marketplace.servicePostList.filter { it.isActive }
     if (services.isEmpty()) {
         EmptyBrowseMessage(
@@ -196,7 +198,17 @@ fun UserBrowseServicesPanel(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         services.forEach { service ->
-            UserServiceCard(service = service)
+            val vendorUid = service.id.substringBefore("_", missingDelimiterValue = "")
+            UserServiceCard(
+                service = service,
+                onChat = {
+                    if (vendorUid.isBlank()) {
+                        Toast.makeText(context, "Could not find vendor for this service", Toast.LENGTH_SHORT).show()
+                    } else {
+                        onChatWithVendor(vendorUid, service.title)
+                    }
+                },
+            )
         }
     }
 }
@@ -425,6 +437,7 @@ internal fun UserReservationCard(
 @Composable
 internal fun UserServiceCard(
     service: VendorServicePost,
+    onChat: () -> Unit,
 ) {
     val context = LocalContext.current
     Card(
@@ -494,9 +507,7 @@ internal fun UserServiceCard(
                     Text("Call")
                 }
                 Button(
-                    onClick = {
-                        Toast.makeText(context, "Chat", Toast.LENGTH_SHORT).show()
-                    },
+                    onClick = onChat,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(

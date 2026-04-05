@@ -6,7 +6,8 @@ enum class UserOrderLineKind {
 }
 
 /**
- * Buyer order stored in Firestore `orders/{orderId}` and mirrored in [MarketplaceData.myOrderList].
+ * A completed buyer order: mirrored in [UserFirestore.FIELD_MY_ORDER], [UserFirestore.FIELD_VENDOR_ORDERS],
+ * and canonical doc [OrderFirestore.COLLECTION_ORDERS]/[orderId].
  */
 data class UserPlacedOrder(
     val orderId: String,
@@ -19,12 +20,12 @@ data class UserPlacedOrder(
     val pickupTime: String,
     val paymentType: String,
     val paymentStatus: String,
-    /** `Pending` until vendor completes pickup via QR scan; then `Done`. */
     val orderStatus: String,
     val placedAtMillis: Long,
-    /** Unique payload encoded in the order QR (same as [orderId] with app prefix). */
+    /** JSON or legacy `seebazar:order:<uuid>` for ZXing. */
     val qrPayload: String,
     val buyerName: String = "",
     val buyerEmail: String = "",
+    /** Vendor Firebase uid (shop owner) for routing and scan verification. */
     val vendorUid: String = "",
 )

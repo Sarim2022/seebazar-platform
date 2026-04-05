@@ -61,6 +61,7 @@ fun UserSearchScreen(
     marketplace: MarketplaceData,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onChatWithVendor: (vendorUid: String, headline: String) -> Unit = { _, _ -> },
 ) {
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -234,7 +235,21 @@ fun UserSearchScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                         items(matchingServices, key = { it.id }) { service ->
-                            UserServiceCard(service = service)
+                            val vendorUid = service.id.substringBefore("_", missingDelimiterValue = "")
+                            UserServiceCard(
+                                service = service,
+                                onChat = {
+                                    if (vendorUid.isBlank()) {
+                                        Toast.makeText(
+                                            context,
+                                            "Could not find vendor for this service",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    } else {
+                                        onChatWithVendor(vendorUid, service.title)
+                                    }
+                                },
+                            )
                         }
                     }
                     if (matchingReservationEntries.isNotEmpty()) {

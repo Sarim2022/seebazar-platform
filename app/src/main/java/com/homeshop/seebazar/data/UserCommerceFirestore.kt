@@ -44,16 +44,12 @@ object UserCommerceFirestore {
                 }
                 val snap = task.result
                 marketplace.cartList.clear()
-                marketplace.myOrderList.clear()
                 if (snap == null || !snap.exists()) {
                     onDone(null)
                     return@addOnCompleteListener
                 }
                 (snap.get(UserFirestore.FIELD_MY_KART) as? List<*>)?.forEach { item ->
                     (item as? Map<*, *>)?.let { kartEntryFromMap(it) }?.let { marketplace.cartList.add(it) }
-                }
-                (snap.get(UserFirestore.FIELD_MY_ORDER) as? List<*>)?.forEach { item ->
-                    (item as? Map<*, *>)?.let { placedOrderFromMap(it) }?.let { marketplace.myOrderList.add(it) }
                 }
                 onDone(null)
             }
@@ -71,12 +67,17 @@ object UserCommerceFirestore {
         pickupTime: String,
         paymentType: String,
         paymentStatus: String,
+        buyerName: String,
+        buyerEmail: String,
         onDone: (Throwable?) -> Unit,
     ) {
         val orderId = UUID.randomUUID().toString()
-        val qrPayload = "seebazar:order:$orderId"
         val placedAt = System.currentTimeMillis()
-        val order = when (line) {
+        val vendorUid = when (line) {
+            is KartEntry.ProductInCart -> line.product.sourceVendorId.trim()
+            is KartEntry.BookingPending -> line.reservation.sourceVendorId.trim()
+        }
+        val orderCore = when (line) {
             is KartEntry.ProductInCart -> {
                 val p = line.product
                 UserPlacedOrder(
@@ -90,9 +91,12 @@ object UserCommerceFirestore {
                     pickupTime = pickupTime,
                     paymentType = paymentType,
                     paymentStatus = paymentStatus,
-                    orderStatus = "Confirmed",
+                    orderStatus = "Pending",
                     placedAtMillis = placedAt,
-                    qrPayload = qrPayload,
+                    qrPayload = "",
+                    buyerName = buyerName.trim(),
+                    buyerEmail = buyerEmail.trim(),
+                    vendorUid = vendorUid,
                 )
             }
             is KartEntry.BookingPending -> {
@@ -108,15 +112,32 @@ object UserCommerceFirestore {
                     pickupTime = pickupTime,
                     paymentType = paymentType,
                     paymentStatus = paymentStatus,
-                    orderStatus = "Confirmed",
+                    orderStatus = "Pending",
                     placedAtMillis = placedAt,
-                    qrPayload = qrPayload,
+                    qrPayload = "",
+                    buyerName = buyerName.trim(),
+                    buyerEmail = buyerEmail.trim(),
+                    vendorUid = vendorUid,
                 )
             }
         }
-        marketplace.cartList.remove(line)
-        marketplace.myOrderList.add(0, order)
-        persistCartAndOrders(uid, marketplace, onDone)
+        val qrPayload = OrderQrPayload.buildJson(orderCore, uid)
+        val order = orderCore.copy(qrPayload = qrPayload)
+        OrderFirestore.saveOrder(order, uid) { e1 ->
+            if (e1 != null) {
+                onDone(e1)
+                return@saveOrder
+            }
+            OrderFirestore.appendVendorOrdersMirror(vendorUid, order, uid) { e2 ->
+                if (e2 != null) {
+                    onDone(e2)
+                    return@appendVendorOrdersMirror
+                }
+                marketplace.cartList.remove(line)
+                marketplace.myOrderList.add(0, order)
+                persistCartAndOrders(uid, marketplace, onDone)
+            }
+        }
     }
 
     private fun placedOrderToMap(o: UserPlacedOrder): Map<String, Any?> = mapOf(
@@ -133,6 +154,9 @@ object UserCommerceFirestore {
         "orderStatus" to o.orderStatus,
         "placedAtMillis" to o.placedAtMillis,
         "qrPayload" to o.qrPayload,
+        "buyerName" to o.buyerName,
+        "buyerEmail" to o.buyerEmail,
+        "vendorUid" to o.vendorUid,
     )
 
     private fun placedOrderFromMap(m: Map<*, *>): UserPlacedOrder? {
@@ -159,6 +183,9 @@ object UserCommerceFirestore {
             orderStatus = m["orderStatus"]?.toString().orEmpty(),
             placedAtMillis = placedAt,
             qrPayload = m["qrPayload"]?.toString() ?: "seebazar:order:$orderId",
+            buyerName = m["buyerName"]?.toString().orEmpty(),
+            buyerEmail = m["buyerEmail"]?.toString().orEmpty(),
+            vendorUid = m["vendorUid"]?.toString().orEmpty(),
         )
     }
 
