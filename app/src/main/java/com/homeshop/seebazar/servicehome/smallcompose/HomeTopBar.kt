@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -101,9 +102,7 @@ fun HomeTopBar(
             .fillMaxWidth()
             .wrapContentHeight()
             .background(
-                brush = Brush.verticalGradient(
-                    colors = gradientColors,
-                ),
+                Color(0xFF1CA1FA)
             )
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp),
     ) {
@@ -123,7 +122,7 @@ fun HomeTopBar(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = Color(0xFFFFFFFF),
                         modifier = Modifier.size(20.dp),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -131,20 +130,12 @@ fun HomeTopBar(
                         text = ellipsizeLocationHeadline(locationHeadline, blankFallback = "Location"),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
+                        color = Color(0xFFFFFFFF),
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
                         modifier = Modifier.weight(1f, fill = false),
                     )
                 }
-                Text(
-                    text = locationSubtitle.ifBlank { "Add location permission to show your area" },
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.9f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
             }
 
             // RIGHT SECTION: Action Icons
@@ -157,7 +148,7 @@ fun HomeTopBar(
                         .size(36.dp)
                         .clickable { onProfileClick() },
                     shape = CircleShape,
-                    color = Color(0xFFFDEFD5), // Cream color from image
+                    color = Color(0xFFFFFFFF), // Cream color from image
                     border = BorderStroke(1.dp, Color(0xFF0090FF)), // Gold border
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -295,31 +286,39 @@ private fun ShopHomeCard(
     onCardClick: () -> Unit,
     onShareClick: () -> Unit,
 ) {
+    val gradientColors = listOf(
+        Color(0xFFF0F9FF), // Top color (Lightest)
+        Color(0xFFDFEEFA), // Middle
+        Color(0xFF6FA7F1), // Bottom color (Darkest)
+    )
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 6.dp)
             .clickable { onCardClick() },
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 4.dp,
     ) {
         Row(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier
+                .background(
+                   Color.White
+                )
+                .padding(12.dp), // Slightly increased padding for a breathable UI
             verticalAlignment = Alignment.Top,
         ) {
+            // Store Icon Container
             Surface(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFEFF6FF),
+                color = Color.White.copy(alpha = 0.6f), // Glassmorphism effect
             ) {
                 Image(
                     painter = painterResource(R.drawable.store),
                     contentDescription = null,
                     modifier = Modifier
                         .padding(8.dp)
-                        .fillMaxWidth()
-                        .height(36.dp),
+                        .fillMaxSize(),
                     contentScale = ContentScale.Fit,
                 )
             }
@@ -335,39 +334,36 @@ private fun ShopHomeCard(
                     Text(
                         text = shop.shopName,
                         fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold, // Branded look
                         color = textDark,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                     IdBadge(text = shop.vendorId, brandBlue = brandBlue)
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = shop.ownerName,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = textMuted,
+                    fontWeight = FontWeight.SemiBold,
+                    color = textDark.copy(alpha = 0.7f),
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = listOf(shop.address, shop.city, shop.postalCode)
                         .filter { it.isNotBlank() }
                         .joinToString(", "),
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     color = textMuted,
-                    lineHeight = 18.sp,
+                    lineHeight = 16.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -375,14 +371,20 @@ private fun ShopHomeCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     OpenClosedStatusChip(isOpen = shop.isOpen)
-                    Icon(
-                        imageVector = Icons.Outlined.Share,
-                        contentDescription = "Share",
-                        tint = textMuted,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clickable { onShareClick() },
-                    )
+
+                    // Styled Share Button
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(36.dp).clickable { onShareClick() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Share,
+                            contentDescription = "Share",
+                            tint = textDark,
+                            modifier = Modifier.padding(8.dp),
+                        )
+                    }
                 }
             }
         }

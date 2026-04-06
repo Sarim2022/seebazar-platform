@@ -2,6 +2,7 @@ package com.homeshop.seebazar.ui // Update with your actual package
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import com.homeshop.seebazar.R
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,7 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -188,8 +192,13 @@ fun SeebazarLoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.loginbg),
+            contentDescription = "Background",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -205,7 +214,7 @@ fun SeebazarLoginScreen(
                 text = "Welcome back! Glad\nto see you, Again!",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = AuthColors.AccentBlue,
+                color = Color.White,
                 lineHeight = 39.sp,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth(),
@@ -249,7 +258,7 @@ fun SeebazarLoginScreen(
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                 Text(
                     text = "Forgot Password?",
-                    color = grayText,
+                    color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier
@@ -272,7 +281,7 @@ fun SeebazarLoginScreen(
                     text = if (isLoggingIn) "Please wait…" else "Login",
                     fontSize = 16.sp,
                     fontWeight = if (canSubmit) FontWeight.Bold else FontWeight.Medium,
-                    color = if (canSubmit) Color.White else AuthColors.PrimaryButtonDisabledText,
+                    color =  Color.White
                 )
             }
 

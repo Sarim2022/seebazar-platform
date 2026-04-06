@@ -1,6 +1,7 @@
 package com.homeshop.seebazar.forgot
 
 import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.homeshop.seebazar.R
 import com.homeshop.seebazar.ui.AuthColors
 
 private val AuthFormMaxWidth = 420.dp
@@ -54,8 +58,13 @@ fun SeebazarForgotScreen(onLoginClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.forgotbg),
+            contentDescription = "Background",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -71,7 +80,7 @@ fun SeebazarForgotScreen(onLoginClick: () -> Unit = {}) {
                 text = "Forgot Password?\nDon't worry!",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = AuthColors.AccentBlue,
+                color = Color.White,
                 lineHeight = 39.sp,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth(),
@@ -82,7 +91,7 @@ fun SeebazarForgotScreen(onLoginClick: () -> Unit = {}) {
             Text(
                 text = "Enter the email address associated with your account.",
                 fontSize = 15.sp,
-                color = grayText,
+                color = Color.White,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -121,7 +130,7 @@ fun SeebazarForgotScreen(onLoginClick: () -> Unit = {}) {
                     text = "Reset My Password",
                     fontSize = 16.sp,
                     fontWeight = if (canSubmit) FontWeight.Bold else FontWeight.Medium,
-                    color = if (canSubmit) Color.White else AuthColors.PrimaryButtonDisabledText,
+                    color = Color.White
                 )
             }
 

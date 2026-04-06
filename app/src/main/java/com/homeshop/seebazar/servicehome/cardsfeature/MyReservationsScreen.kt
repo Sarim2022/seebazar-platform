@@ -104,6 +104,7 @@ fun MyReservationsScreen(
         initialAddress = prefAddr,
         initialCity = prefCity,
         initialPostalCode = prefPostal,
+        initialUpiId = VendorPrefs.cachedVendorUpi(context),
         onDismiss = { showCreatePlace = false },
         onSubmit = { place ->
             placeList.clear()

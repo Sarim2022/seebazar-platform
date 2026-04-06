@@ -217,6 +217,7 @@ fun MyServicesScreen(
         takeNextProfileId = marketplace::takeNextServiceProfileId,
         defaultProviderName = accountNameForService,
         initialServiceArea = initialServiceAreaForDialog,
+        initialUpiId = VendorPrefs.cachedVendorUpi(context),
         onDismiss = { showCreateProfile = false },
         onSubmit = {
             marketplace.serviceProfile = it
@@ -785,6 +786,7 @@ private fun ServiceProfileDetailsScreen(
     var shortDescription by remember(profile.id) { mutableStateOf(profile.shortDescription) }
     var chargesType by remember(profile.id) { mutableStateOf(profile.chargesType) }
     var baseCharge by remember(profile.id) { mutableStateOf(profile.baseCharge) }
+    var upiId by remember(profile.id) { mutableStateOf(profile.upiId) }
     var isAvailable by remember(profile.id) { mutableStateOf(profile.isAvailable) }
     var professionMenuExpanded by remember { mutableStateOf(false) }
     var chargesMenuExpanded by remember { mutableStateOf(false) }
@@ -799,6 +801,7 @@ private fun ServiceProfileDetailsScreen(
 
     LaunchedEffect(profile.id) {
         imageUri = profile.imageUri
+        upiId = profile.upiId
     }
 
     val fieldShape = RoundedCornerShape(12.dp)
@@ -975,6 +978,16 @@ private fun ServiceProfileDetailsScreen(
                 shape = fieldShape,
                 colors = fieldColors,
             )
+            OutlinedTextField(
+                value = upiId,
+                onValueChange = { upiId = it },
+                label = { Text("UPI ID * (prepaid)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = fieldShape,
+                colors = fieldColors,
+                placeholder = { Text("e.g. merchant@okicici") },
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1022,9 +1035,10 @@ private fun ServiceProfileDetailsScreen(
                     formError = null
                     if (providerName.isBlank() || experienceYears.isBlank() ||
                         serviceArea.isBlank() || contactNumber.isBlank() ||
-                        shortDescription.isBlank() || baseCharge.isBlank()
+                        shortDescription.isBlank() || baseCharge.isBlank() ||
+                        !VendorPrefs.isValidVendorUpiFormat(upiId)
                     ) {
-                        formError = "Please fill all required fields."
+                        formError = "Please fill all required fields (including a valid UPI ID)."
                         return@Button
                     }
                     onSave(
@@ -1039,6 +1053,7 @@ private fun ServiceProfileDetailsScreen(
                             baseCharge = baseCharge.trim(),
                             imageUri = imageUri?.trim()?.takeIf { it.isNotBlank() },
                             isAvailable = isAvailable,
+                            upiId = upiId.trim(),
                         ),
                     )
                     onBack()

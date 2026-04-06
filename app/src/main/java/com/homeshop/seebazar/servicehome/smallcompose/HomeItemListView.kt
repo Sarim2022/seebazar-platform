@@ -39,7 +39,7 @@ private data class InsightTab(
 
 private val insightTabs = listOf(
     InsightTab(
-        title = "Today Earnings",
+        title = "Today's Earning",
         iconRes = R.drawable.income,
         placeholderMessage = "Today Earnings — content coming soon.",
     ),

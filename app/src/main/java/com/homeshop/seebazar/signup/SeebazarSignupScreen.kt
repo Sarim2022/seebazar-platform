@@ -2,6 +2,7 @@ package com.homeshop.seebazar.signup
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +54,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.firestore.FieldValue
+import com.homeshop.seebazar.R
 import com.homeshop.seebazar.data.UserFirestore
 import com.homeshop.seebazar.ui.AuthColors
 
@@ -170,8 +174,13 @@ fun SeebazarSignupScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.signupbg),
+            contentDescription = "Background",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -187,7 +196,7 @@ fun SeebazarSignupScreen(
                 text = "Hello! Register to get\nstarted",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = AuthColors.AccentBlue,
+                color = Color.White,
                 lineHeight = 39.sp,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth(),
@@ -317,7 +326,7 @@ fun SeebazarSignupScreen(
                     text = if (isRegistering) "Please wait…" else "Register",
                     fontSize = 16.sp,
                     fontWeight = if (formValid) FontWeight.Bold else FontWeight.Medium,
-                    color = if (formValid) RegisterTextValid else AuthColors.PrimaryButtonDisabledText,
+                    color = Color.White
                 )
             }
 

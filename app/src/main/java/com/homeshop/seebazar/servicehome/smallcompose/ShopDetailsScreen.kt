@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.homeshop.seebazar.data.ShopDetails
+import com.homeshop.seebazar.data.VendorPrefs
 import com.homeshop.seebazar.servicehome.VendorUi
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,6 +61,7 @@ fun ShopDetailsScreen(
     var postalCode by remember(shop) { mutableStateOf(shop.postalCode) }
     var isOpen by remember(shop) { mutableStateOf(shop.isOpen) }
     var upiId by remember(shop) { mutableStateOf(shop.upiId) }
+    var formError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -140,11 +142,19 @@ fun ShopDetailsScreen(
             OutlinedTextField(
                 value = upiId,
                 onValueChange = { upiId = it },
-                label = { Text("UPI ID (for prepaid)") },
+                label = { Text("UPI ID * (for prepaid)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                placeholder = { Text("e.g. shopname@paytm") },
+                placeholder = { Text("e.g. merchant@okicici") },
             )
+
+            formError?.let {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -177,6 +187,11 @@ fun ShopDetailsScreen(
 
             Button(
                 onClick = {
+                    formError = null
+                    if (!VendorPrefs.isValidVendorUpiFormat(upiId)) {
+                        formError = "Enter a valid UPI ID (e.g. merchant@okicici)."
+                        return@Button
+                    }
                     shops[shopIndex] = ShopDetails(
                         shopName = shopName.trim(),
                         vendorId = vendorId.trim(),

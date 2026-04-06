@@ -1,5 +1,7 @@
 package com.homeshop.seebazar.servicehome
 
+import MyWalletScreen
+import android.app.Activity
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -37,13 +39,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.HomeRepairService
-import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Store
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -52,6 +52,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +62,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -70,10 +73,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.Surface
+import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.homeshop.seebazar.data.MarketplaceData
 import com.homeshop.seebazar.data.UserFirestore
 import com.homeshop.seebazar.data.VendorFirestoreSync
@@ -92,6 +99,7 @@ import com.homeshop.seebazar.servicehome.smallcompose.VendorBottomBar
 import com.homeshop.seebazar.servicehome.smallcompose.VendorSettingsMenuIds
 import com.homeshop.seebazar.servicehome.smallcompose.VendorSettingsScreen
 import com.homeshop.seebazar.ui.LogoutConfirmationDialog
+import com.homeshop.seebazar.common.PaymentReceiptScreen
 
 private enum class VendorOnboardingTarget {
     Shop,
@@ -109,7 +117,15 @@ fun VendorHome(
     onVendorAccountDeleted: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
+    // Dark status-bar icons on light vendor chrome (wallet / chats / orders top bars).
+    SideEffect {
+        val window = (view.context as? Activity)?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
+    }
     val scanViewModel = viewModel<VendorScanViewModel>()
+    val ordersNavController = rememberNavController()
+    val receiptNavViewModel = viewModel<VendorReceiptNavViewModel>()
     val receiptOrder by scanViewModel.receiptOrder.collectAsStateWithLifecycle()
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview(),
@@ -264,7 +280,9 @@ fun VendorHome(
                     )
                 } else if (openCardRoute == null) {
                     Column(
-                        modifier = contentModifier.verticalScroll(rememberScrollState()),
+                        modifier = contentModifier
+                            .background(Color.White)
+                            .verticalScroll(rememberScrollState()),
                     ) {
                         val primaryShop = marketplace.shopList.firstOrNull()
                         val accountDisplayName = VendorPrefs.cachedDisplayName(context).ifBlank {
@@ -313,9 +331,9 @@ fun VendorHome(
                                 },
                             )
                         }
+//                        Text("Catogories", fontSize = 16.sp,fontWeight = FontWeight.Bold,modifier= Modifier.padding(start = 14.dp,top = 12.dp, bottom = 5.dp))
                         HomeCardsVendor(
                             modifier = Modifier.fillMaxWidth(),
-                            shopIsOpen = primaryShop?.isOpen == true,
                             onCardClick = { openCardRoute = it },
                         )
                         HomeItemListView(
@@ -409,16 +427,44 @@ fun VendorHome(
                     }
                 }
             }
-            1 -> OrdersScreen(
+            1 -> NavHost(
+                navController = ordersNavController,
+                startDestination = VendorOrdersRoutes.List,
                 modifier = contentModifier,
-                vendorUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty(),
-            )
-            2 -> VendorScanPlaceholder(
-                modifier = contentModifier,
-                onOpenCamera = openCameraPreview,
-            )
-            3 -> ChatScreen(modifier = contentModifier)
-            4 -> MyWallet(modifier = contentModifier)
+            ) {
+                composable(VendorOrdersRoutes.List) {
+                    OrdersScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        vendorUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty(),
+                        onScanClick = openCameraPreview,
+                        onOpenReceiptForDoneOrder = { order ->
+                            receiptNavViewModel.setPendingReceiptOrder(order)
+                            ordersNavController.navigate(VendorOrdersRoutes.Receipt)
+                        },
+                    )
+                }
+                composable(VendorOrdersRoutes.Receipt) {
+                    val order = receiptNavViewModel.pendingReceiptOrder
+                    if (order == null) {
+                        LaunchedEffect(Unit) {
+                            ordersNavController.popBackStack()
+                        }
+                        Box(modifier = Modifier.fillMaxSize())
+                        return@composable
+                    }
+                    PaymentReceiptScreen(
+                        order = order,
+                        onNavigateBack = {
+                            // Pop first: clearing the order while still on this route recomposes with
+                            // order == null and LaunchedEffect pops again → double pop → blank Orders tab.
+                            ordersNavController.popBackStack()
+                            receiptNavViewModel.clearPendingReceiptOrder()
+                        },
+                    )
+                }
+            }
+            2 -> ChatScreen(modifier = contentModifier)
+            3 -> MyWalletScreen(modifier = contentModifier)
         }
     }
 
@@ -526,6 +572,7 @@ fun VendorHome(
     val prefAddress = VendorLocationPrefs.addressLine(context)
     val prefCity = VendorLocationPrefs.city(context)
     val prefPostal = VendorLocationPrefs.postalCode(context)
+    val cachedVendorUpi = VendorPrefs.cachedVendorUpi(context)
     val initialServiceArea = listOf(prefCity, prefAddress).filter { it.isNotBlank() }.joinToString(", ").ifBlank {
         VendorLocationPrefs.displaySubtitle(context)
     }
@@ -537,6 +584,7 @@ fun VendorHome(
         initialAddress = prefAddress,
         initialCity = prefCity,
         initialPostalCode = prefPostal,
+        initialUpiId = cachedVendorUpi,
         onDismiss = {
             vendorOnboardingTarget = null
             reopenVendorOfferIfStillEmpty()
@@ -555,6 +603,7 @@ fun VendorHome(
         takeNextProfileId = marketplace::takeNextServiceProfileId,
         defaultProviderName = accountNameForForms,
         initialServiceArea = initialServiceArea,
+        initialUpiId = cachedVendorUpi,
         onDismiss = {
             vendorOnboardingTarget = null
             reopenVendorOfferIfStillEmpty()
@@ -574,6 +623,7 @@ fun VendorHome(
         initialAddress = prefAddress,
         initialCity = prefCity,
         initialPostalCode = prefPostal,
+        initialUpiId = cachedVendorUpi,
         onDismiss = {
             vendorOnboardingTarget = null
             reopenVendorOfferIfStillEmpty()
@@ -721,14 +771,13 @@ fun OpenShopUI(
 ) {
     val borderColor = Color(0xFF4EB1FF)
 
+
+
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = gradientColors
-                )
-            )
+            .background(Color(0xFF1CA1FA))
             .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -740,10 +789,10 @@ fun OpenShopUI(
                 .height(40.dp),
             border = BorderStroke(1.dp, borderColor),
             colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color(0xFF4EB1FF),
-                contentColor = Color.White
+                containerColor = Color(0xFFFFFFFF),
+                contentColor = Color.Black
             ),
-            shape = RoundedCornerShape(4.dp)
+            shape = RoundedCornerShape(8.dp)
         ) {
             Text(
                 text = "Add New Product",
@@ -772,50 +821,6 @@ fun OpenShopUI(
                 // Optional: change alpha or color filter based on shopIsOpen to show it's working
                 alpha = if (shopIsOpen) 1f else 0.5f
             )
-        }
-    }
-}
-/** Opens camera preview only; bitmap is ignored. */
-@Composable
-private fun VendorScanPlaceholder(
-    modifier: Modifier = Modifier,
-    onOpenCamera: () -> Unit,
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(VendorUi.ScreenBg)
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(modifier = Modifier.height(64.dp))
-        Icon(
-            imageVector = Icons.Outlined.QrCodeScanner,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = VendorUi.BrandBlue,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Scan",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = VendorUi.TextDark,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Take a photo of the customer's order QR from their Order status screen.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = VendorUi.TextMuted,
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = onOpenCamera,
-            colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Text("Open camera")
         }
     }
 }

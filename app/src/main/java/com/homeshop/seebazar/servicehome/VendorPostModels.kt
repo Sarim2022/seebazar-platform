@@ -73,6 +73,8 @@ data class ReservationBusiness(
     val totalCapacity: String,
     val imageUri: String?,
     val isOpen: Boolean = true,
+    /** UPI ID for prepaid checkout (e.g. name@okicici). */
+    val upiId: String = "",
 )
 
 enum class ReservationSlotCategory(val displayLabel: String) {
@@ -149,6 +151,8 @@ data class VendorServiceProfile(
     val imageUri: String?,
     /** true = Available, false = Busy */
     val isAvailable: Boolean,
+    /** UPI ID for prepaid checkout (e.g. name@okicici). */
+    val upiId: String = "",
 )
 
 /**

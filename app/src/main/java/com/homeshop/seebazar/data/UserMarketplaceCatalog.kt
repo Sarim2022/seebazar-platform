@@ -38,14 +38,14 @@ object UserMarketplaceCatalog {
                     val extract = VendorFirestoreSync.extractVendorListingsForCatalog(data)
                     val vendorKey = doc.id
                     val shopMap = data[UserFirestore.FIELD_SHOP] as? Map<*, *>
-                    val shopUpi = shopMap?.get("upiId")?.toString()?.trim().orEmpty()
                     val shopNameHint = shopMap?.get("shopName")?.toString()?.trim().orEmpty()
+                    val effectiveUpi = VendorFirestoreSync.resolveVendorUpiFromUserDocMap(data)
                     for (p in extract.products) {
                         val labeled = p.copy(
                             id = nextProductId++,
                             vendorShopName = p.vendorShopName.ifBlank { shopNameHint },
                             sourceVendorId = vendorKey,
-                            vendorUpiId = shopUpi,
+                            vendorUpiId = effectiveUpi,
                         )
                         marketplace.productList.add(labeled)
                     }
@@ -62,7 +62,7 @@ object UserMarketplaceCatalog {
                                 business = scopedBiz,
                                 slot = scopedSlot,
                                 vendorUid = vendorKey,
-                                vendorUpiId = shopUpi,
+                                vendorUpiId = effectiveUpi,
                             ),
                         )
                     }

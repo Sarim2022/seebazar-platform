@@ -30,6 +30,46 @@ data class VendorListingExtract(
  */
 object VendorFirestoreSync {
 
+    /** Resolves UPI from a vendor [users] document map (root field, then shop / service / reservation). */
+    fun resolveVendorUpiFromUserDocMap(data: Map<String, Any?>): String {
+        val root = data[UserFirestore.FIELD_VENDOR_UPI]?.toString()?.trim().orEmpty()
+        if (root.isNotBlank()) return root
+        val shop = data[UserFirestore.FIELD_SHOP] as? Map<*, *>
+        val shopUpi = shop?.get("upiId")?.toString()?.trim().orEmpty()
+        if (shopUpi.isNotBlank()) return shopUpi
+        val sp = data[UserFirestore.FIELD_SERVICE_PROFILE] as? Map<*, *>
+        val spUpi = sp?.get("upiId")?.toString()?.trim().orEmpty()
+        if (spUpi.isNotBlank()) return spUpi
+        val rb = data[UserFirestore.FIELD_RESERVATION_BUSINESS] as? Map<*, *>
+        return rb?.get("upiId")?.toString()?.trim().orEmpty()
+    }
+
+    fun fetchVendorUpiId(vendorUid: String, onResult: (String) -> Unit) {
+        val uid = vendorUid.trim()
+        if (uid.isEmpty()) {
+            onResult("")
+            return
+        }
+        UserFirestore.usersCollection().document(uid).get()
+            .addOnSuccessListener { snap ->
+                val data = snap.data
+                if (data == null) {
+                    onResult("")
+                    return@addOnSuccessListener
+                }
+                onResult(resolveVendorUpiFromUserDocMap(data))
+            }
+            .addOnFailureListener { onResult("") }
+    }
+
+    private fun canonicalVendorUpi(marketplace: MarketplaceData): String {
+        val shop = marketplace.shopList.firstOrNull()?.upiId?.trim().orEmpty()
+        if (shop.isNotBlank()) return shop
+        val svc = marketplace.serviceProfile?.upiId?.trim().orEmpty()
+        if (svc.isNotBlank()) return svc
+        return marketplace.reservationPlaceList.firstOrNull()?.upiId?.trim().orEmpty()
+    }
+
     private fun boolFromFirestore(value: Any?): Boolean? = when (value) {
         is Boolean -> value
         is Number -> value.toInt() != 0
@@ -145,6 +185,12 @@ object VendorFirestoreSync {
 
     fun pushVendorMarketplace(uid: String, marketplace: MarketplaceData, context: Context) {
         val updates = HashMap<String, Any>()
+        val rootUpi = canonicalVendorUpi(marketplace)
+        if (rootUpi.isNotBlank()) {
+            updates[UserFirestore.FIELD_VENDOR_UPI] = rootUpi
+        } else {
+            updates[UserFirestore.FIELD_VENDOR_UPI] = FieldValue.delete()
+        }
         updates[UserFirestore.FIELD_IS_SHOP_PROFILE] = marketplace.shopList.isNotEmpty()
         updates[UserFirestore.FIELD_IS_SERVICE_PROFILE] = marketplace.serviceProfile != null
         updates[UserFirestore.FIELD_IS_RESERVATION] = marketplace.reservationPlaceList.isNotEmpty()
@@ -173,6 +219,10 @@ object VendorFirestoreSync {
 
     fun marketplaceToJson(marketplace: MarketplaceData): JSONObject {
         val o = JSONObject()
+        val rootUpi = canonicalVendorUpi(marketplace)
+        if (rootUpi.isNotBlank()) {
+            o.put(UserFirestore.FIELD_VENDOR_UPI, rootUpi)
+        }
         o.put(UserFirestore.FIELD_IS_SHOP_PROFILE, marketplace.shopList.isNotEmpty())
         o.put(UserFirestore.FIELD_IS_SERVICE_PROFILE, marketplace.serviceProfile != null)
         o.put(UserFirestore.FIELD_IS_RESERVATION, marketplace.reservationPlaceList.isNotEmpty())
@@ -200,10 +250,18 @@ object VendorFirestoreSync {
     }
 
     private fun applyDataMap(data: Map<String, Any?>, marketplace: MarketplaceData): Boolean {
+        val rootUpiFallback = data[UserFirestore.FIELD_VENDOR_UPI]?.toString()?.trim().orEmpty()
         val shopMap = data[UserFirestore.FIELD_SHOP] as? Map<*, *>
         marketplace.shopList.clear()
         shopMap?.let { m ->
-            shopFromMap(m)?.let { marketplace.shopList.add(it) }
+            shopFromMap(m)?.let { s ->
+                val withUpi = if (s.upiId.isBlank() && rootUpiFallback.isNotBlank()) {
+                    s.copy(upiId = rootUpiFallback)
+                } else {
+                    s
+                }
+                marketplace.shopList.add(withUpi)
+            }
         }
         marketplace.productList.clear()
         val shopEmbeddedProducts = shopMap?.get("products") as? List<*>
@@ -216,7 +274,11 @@ object VendorFirestoreSync {
                 (item as? Map<*, *>)?.let { productFromMap(it) }?.let { marketplace.productList.add(it) }
             }
         }
-        marketplace.serviceProfile = (data[UserFirestore.FIELD_SERVICE_PROFILE] as? Map<*, *>)?.let(::serviceProfileFromMap)
+        marketplace.serviceProfile = (data[UserFirestore.FIELD_SERVICE_PROFILE] as? Map<*, *>)?.let { m ->
+            serviceProfileFromMap(m)?.let { p ->
+                if (p.upiId.isBlank() && rootUpiFallback.isNotBlank()) p.copy(upiId = rootUpiFallback) else p
+            }
+        }
         marketplace.servicePostList.clear()
         (data[UserFirestore.FIELD_SERVICE_POSTS] as? List<*>)?.forEach { item ->
             (item as? Map<*, *>)?.let { servicePostFromMap(it) }?.let { marketplace.servicePostList.add(it) }
@@ -224,7 +286,14 @@ object VendorFirestoreSync {
         val resMap = data[UserFirestore.FIELD_RESERVATION_BUSINESS] as? Map<*, *>
         marketplace.reservationPlaceList.clear()
         resMap?.let { m ->
-            reservationBusinessFromMap(m)?.let { marketplace.reservationPlaceList.add(it) }
+            reservationBusinessFromMap(m)?.let { b ->
+                val withUpi = if (b.upiId.isBlank() && rootUpiFallback.isNotBlank()) {
+                    b.copy(upiId = rootUpiFallback)
+                } else {
+                    b
+                }
+                marketplace.reservationPlaceList.add(withUpi)
+            }
         }
         marketplace.reservationSlotList.clear()
         marketplace.reservationBrowseList.clear()
@@ -364,6 +433,7 @@ object VendorFirestoreSync {
         put("baseCharge", p.baseCharge)
         put("imageUri", p.imageUri)
         put("isAvailable", p.isAvailable)
+        put("upiId", p.upiId)
     }
 
     private fun serviceProfileToMap(p: VendorServiceProfile) = serviceProfileToJson(p).let { jsonObjectToMap(it) }
@@ -386,6 +456,7 @@ object VendorFirestoreSync {
             baseCharge = m["baseCharge"]?.toString().orEmpty(),
             imageUri = m["imageUri"]?.toString(),
             isAvailable = boolFromFirestore(m["isAvailable"]) ?: true,
+            upiId = m["upiId"]?.toString().orEmpty(),
         )
     }
 
@@ -438,6 +509,7 @@ object VendorFirestoreSync {
         put("totalCapacity", b.totalCapacity)
         put("imageUri", b.imageUri)
         put("isOpen", b.isOpen)
+        put("upiId", b.upiId)
         put(
             "reservationSlots",
             JSONArray().apply { for (s in reservationSlots) put(reservationSlotToJson(s)) },
@@ -466,6 +538,7 @@ object VendorFirestoreSync {
             totalCapacity = m["totalCapacity"]?.toString().orEmpty(),
             imageUri = m["imageUri"]?.toString(),
             isOpen = boolFromFirestore(m["isOpen"]) ?: true,
+            upiId = m["upiId"]?.toString().orEmpty(),
         )
     }
 

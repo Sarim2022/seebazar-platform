@@ -22,6 +22,9 @@ object UserFirestore {
     /** Vendor wallet ledger entries; stored as an array (initially empty). */
     const val FIELD_WALLET_VENDOR = "WalletVendor"
 
+    /** Canonical UPI for prepaid payouts; mirrors the active shop/service/reservation profile. */
+    const val FIELD_VENDOR_UPI = "vendorUpiId"
+
     /** Buyer cart lines (serialized [KartEntry]). */
     const val FIELD_MY_KART = "MyKart"
     /** Buyer completed orders. */

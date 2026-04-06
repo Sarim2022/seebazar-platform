@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,14 +20,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,10 +44,13 @@ import com.homeshop.seebazar.data.KartEntry
 import com.homeshop.seebazar.data.MarketplaceData
 import com.homeshop.seebazar.data.UserCommerceFirestore
 import com.homeshop.seebazar.data.UserProfilePrefs
+import com.homeshop.seebazar.data.VendorFirestoreSync
 import com.homeshop.seebazar.servicehome.VendorUi
 import com.homeshop.seebazar.ui.FormBottomSheetScaffold
 import com.homeshop.seebazar.ui.FormSheetPrimaryButton
 import com.homeshop.seebazar.ui.FormSheetTextField
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val ScreenBg = Color(0xFFF8FAFC)
 private val ChipSelectedBg = Color(0xFF1F2937)
@@ -58,9 +65,14 @@ private data class PrepaidSheetArgs(
 fun UserKartScreen(
     modifier: Modifier = Modifier,
     marketplace: MarketplaceData,
+    onPaymentSuccess: () -> Unit = {},
 ) {
     var pickupSheetLine by remember { mutableStateOf<KartEntry?>(null) }
     var prepaidArgs by remember { mutableStateOf<PrepaidSheetArgs?>(null) }
+    var prepaidPayInProgress by remember { mutableStateOf(false) }
+    var prepaidUpiFromFirestore by remember { mutableStateOf<String?>(null) }
+    var prepaidUpiFetchDone by remember { mutableStateOf(false) }
+    val payScope = rememberCoroutineScope()
 
     val context = LocalContext.current
     val uid = FirebaseAuth.getInstance().currentUser?.uid
@@ -95,9 +107,10 @@ fun UserKartScreen(
         }
     }
 
-    fun finalizePrepaidPaid(line: KartEntry, pickupTime: String) {
+    fun finalizePrepaidPaid(line: KartEntry, pickupTime: String, onResult: (Throwable?) -> Unit) {
         if (uid == null) {
             Toast.makeText(context, "Please sign in again.", Toast.LENGTH_SHORT).show()
+            onResult(IllegalStateException("no uid"))
             return
         }
         UserCommerceFirestore.finalizeCheckout(
@@ -112,9 +125,8 @@ fun UserKartScreen(
         ) { err ->
             if (err != null) {
                 Toast.makeText(context, "Could not save order.", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Order confirmed", Toast.LENGTH_SHORT).show()
             }
+            onResult(err)
         }
     }
 
@@ -204,6 +216,29 @@ fun UserKartScreen(
         }
     }
 
+    LaunchedEffect(prepaidArgs) {
+        val args = prepaidArgs
+        if (args == null) {
+            prepaidUpiFromFirestore = null
+            prepaidUpiFetchDone = false
+            return@LaunchedEffect
+        }
+        prepaidUpiFetchDone = false
+        prepaidUpiFromFirestore = null
+        val vendorUid = when (val line = args.line) {
+            is KartEntry.ProductInCart -> line.product.sourceVendorId
+            is KartEntry.BookingPending -> line.reservation.sourceVendorId
+        }.trim()
+        if (vendorUid.isEmpty()) {
+            prepaidUpiFetchDone = true
+            return@LaunchedEffect
+        }
+        VendorFirestoreSync.fetchVendorUpiId(vendorUid) { upi ->
+            prepaidUpiFromFirestore = upi
+            prepaidUpiFetchDone = true
+        }
+    }
+
     pickupSheetLine?.let { line ->
         PickupPaymentBottomSheet(
             onDismiss = { pickupSheetLine = null },
@@ -219,13 +254,28 @@ fun UserKartScreen(
     }
 
     prepaidArgs?.let { args ->
+        val resolvedUpi = prepaidUpiFromFirestore?.takeIf { it.isNotBlank() }
+            ?: args.line.vendorUpiForPay().trim()
         PrepaidUpiBottomSheet(
             shopName = args.line.vendorShopForPay(),
-            upiLine = formatVendorUpiLine(args.line.vendorShopForPay(), args.line.vendorUpiForPay()),
-            onDismiss = { prepaidArgs = null },
+            vendorUpiId = resolvedUpi,
+            upiLoading = !prepaidUpiFetchDone,
+            isPaying = prepaidPayInProgress,
+            onDismiss = {
+                if (!prepaidPayInProgress) prepaidArgs = null
+            },
             onPayIt = {
-                prepaidArgs = null
-                finalizePrepaidPaid(args.line, args.pickupTime)
+                prepaidPayInProgress = true
+                payScope.launch {
+                    delay(1_000)
+                    finalizePrepaidPaid(args.line, args.pickupTime) { err ->
+                        prepaidPayInProgress = false
+                        if (err == null) {
+                            prepaidArgs = null
+                            onPaymentSuccess()
+                        }
+                    }
+                }
             },
         )
     }
@@ -239,12 +289,6 @@ private fun KartEntry.vendorShopForPay(): String = when (this) {
 private fun KartEntry.vendorUpiForPay(): String = when (this) {
     is KartEntry.ProductInCart -> product.vendorUpiId
     is KartEntry.BookingPending -> reservation.vendorUpiId
-}
-
-private fun formatVendorUpiLine(shop: String, upi: String): String {
-    val u = upi.trim()
-    if (u.isEmpty()) return "${shop.ifBlank { "Vendor" }} — UPI not shared by vendor yet"
-    return if (u.contains('@')) "${shop.ifBlank { "Vendor" }} — $u" else "${shop.ifBlank { "vendor" }}@$u"
 }
 
 @Composable
@@ -308,7 +352,9 @@ private fun PickupPaymentBottomSheet(
 @Composable
 private fun PrepaidUpiBottomSheet(
     shopName: String,
-    upiLine: String,
+    vendorUpiId: String,
+    upiLoading: Boolean,
+    isPaying: Boolean,
     onDismiss: () -> Unit,
     onPayIt: () -> Unit,
 ) {
@@ -316,31 +362,67 @@ private fun PrepaidUpiBottomSheet(
         onDismiss = onDismiss,
         title = "Pay vendor",
         subtitle = "Send payment via UPI",
+        dismissEnabled = !isPaying,
     ) {
         Text(
-            text = "Pay to",
+            text = "Vendor UPI ID",
             style = MaterialTheme.typography.labelMedium,
             color = VendorUi.TextMuted,
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = upiLine,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = VendorUi.TextDark,
-        )
+        when {
+            upiLoading && !isPaying -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(36.dp),
+                        color = VendorUi.BrandBlue,
+                        strokeWidth = 3.dp,
+                    )
+                }
+            }
+            else -> {
+                val display = vendorUpiId.trim()
+                Text(
+                    text = if (display.isNotEmpty()) display else "UPI not available for this vendor yet",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = VendorUi.TextDark,
+                )
+            }
+        }
         if (shopName.isNotBlank()) {
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = shopName,
                 style = MaterialTheme.typography.bodyMedium,
                 color = VendorUi.TextMuted,
             )
         }
-        FormSheetPrimaryButton(
-            text = "Pay it",
-            onClick = onPayIt,
-        )
+        if (isPaying) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(40.dp),
+                    color = VendorUi.BrandBlue,
+                    strokeWidth = 3.dp,
+                )
+            }
+        } else {
+            FormSheetPrimaryButton(
+                text = "Pay it",
+                enabled = !upiLoading && vendorUpiId.trim().isNotEmpty(),
+                onClick = onPayIt,
+            )
+        }
     }
 }
 

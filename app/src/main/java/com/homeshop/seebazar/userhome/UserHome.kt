@@ -65,6 +65,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.homeshop.seebazar.R
+import com.homeshop.seebazar.common.PaymentSuccessScreen
 import com.homeshop.seebazar.data.ChatFirestore
 import com.homeshop.seebazar.data.MarketplaceData
 import com.homeshop.seebazar.data.OrderFirestore
@@ -127,6 +128,7 @@ fun UserHome(
     var userLocationBump by remember { mutableIntStateOf(0) }
     var pendingChatRoomId by remember { mutableStateOf<String?>(null) }
     var pendingChatTitle by remember { mutableStateOf("") }
+    var paymentSuccessVisible by remember { mutableStateOf(false) }
 
     val loginLocationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -218,7 +220,7 @@ fun UserHome(
 
     Scaffold(
         bottomBar = {
-            if (!showSettings) {
+            if (!showSettings && !paymentSuccessVisible) {
                 UserBottomBar(
                     selectedTab = selectedTab,
                     onTabSelected = { selectedTab = it },
@@ -226,7 +228,20 @@ fun UserHome(
             }
         },
     ) { paddingValues ->
-        when (selectedTab) {
+        if (paymentSuccessVisible) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+            ) {
+                PaymentSuccessScreen(
+                    onGoToOrders = {
+                        paymentSuccessVisible = false
+                        selectedTab = 3
+                    },
+                )
+            }
+        } else when (selectedTab) {
             0 -> {
                 if (showSettings) {
                     UserSettingsScreen(
@@ -258,6 +273,7 @@ fun UserHome(
                     .fillMaxSize()
                     .padding(paddingValues),
                 marketplace = marketplace,
+                onPaymentSuccess = { paymentSuccessVisible = true },
             )
             2 -> UserChatsScreen(
                 modifier = Modifier

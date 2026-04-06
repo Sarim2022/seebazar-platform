@@ -51,11 +51,12 @@ fun FormBottomSheetScaffold(
     onDismiss: () -> Unit,
     title: String,
     subtitle: String? = null,
+    dismissEnabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (dismissEnabled) onDismiss() },
         sheetState = sheetState,
         containerColor = Color.White,
         contentColor = VendorUi.TextDark,
@@ -91,7 +92,10 @@ fun FormBottomSheetScaffold(
                         )
                     }
                 }
-                IconButton(onClick = onDismiss) {
+                IconButton(
+                    onClick = onDismiss,
+                    enabled = dismissEnabled,
+                ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",

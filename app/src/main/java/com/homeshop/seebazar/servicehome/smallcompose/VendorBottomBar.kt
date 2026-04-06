@@ -1,5 +1,6 @@
 package com.homeshop.seebazar.servicehome.smallcompose
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -7,7 +8,6 @@ import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -36,7 +36,6 @@ private data class BottomNavItem(
 private val navItems = listOf(
     BottomNavItem("Home", Icons.Outlined.Home),
     BottomNavItem("Status", Icons.Outlined.Inventory2),
-    BottomNavItem("Scan", Icons.Outlined.QrCodeScanner),
     BottomNavItem("Chat", Icons.Outlined.ChatBubbleOutline),
     BottomNavItem("Wallet", Icons.Outlined.AccountBalanceWallet),
 )
@@ -50,7 +49,7 @@ fun VendorBottomBar(
 
     NavigationBar(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxWidth().background(Color.White)
             .graphicsLayer {
                 shadowElevation = 10.dp.toPx()
                 shape = shape

@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -17,13 +19,13 @@ import com.homeshop.seebazar.servicehome.VendorCardRoute
 @Composable
 fun HomeCardsVendor(
     modifier: Modifier = Modifier,
-    shopIsOpen: Boolean = false,
     onCardClick: (VendorCardRoute) -> Unit = {},
 ) {
     Column(
         modifier = modifier
-            .background(Color.White) // Neutral off-white background
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
+            .background(Color(0xFF1CA1FA))
+            .padding(start = 12.dp,end=12.dp, top = 6.dp, bottom = 16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

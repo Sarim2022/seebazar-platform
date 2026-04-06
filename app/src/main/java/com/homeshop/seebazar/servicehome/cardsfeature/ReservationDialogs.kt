@@ -50,6 +50,7 @@ import com.homeshop.seebazar.servicehome.ReservationBusiness
 import com.homeshop.seebazar.servicehome.ReservationBusinessType
 import com.homeshop.seebazar.servicehome.ReservationSlot
 import com.homeshop.seebazar.servicehome.ReservationSlotCategory
+import com.homeshop.seebazar.data.VendorPrefs
 import com.homeshop.seebazar.servicehome.VendorUi
 import com.homeshop.seebazar.ui.FormBottomSheetScaffold
 import com.homeshop.seebazar.ui.FormSheetDividerColor
@@ -73,6 +74,7 @@ fun CreateReservationPlaceDialog(
     initialAddress: String,
     initialCity: String,
     initialPostalCode: String,
+    initialUpiId: String = "",
     onDismiss: () -> Unit,
     onSubmit: (ReservationBusiness) -> Unit,
 ) {
@@ -90,6 +92,7 @@ fun CreateReservationPlaceDialog(
     var totalCapacity by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<String?>(null) }
     var isOpen by remember { mutableStateOf(true) }
+    var upiId by remember { mutableStateOf("") }
     var typeMenuExpanded by remember { mutableStateOf(false) }
     var formError by remember { mutableStateOf<String?>(null) }
 
@@ -99,7 +102,7 @@ fun CreateReservationPlaceDialog(
         imageUri = uri?.toString()
     }
 
-    LaunchedEffect(visible, initialAddress, initialCity, initialPostalCode) {
+    LaunchedEffect(visible, initialAddress, initialCity, initialPostalCode, initialUpiId) {
         if (!visible) return@LaunchedEffect
         formError = null
         businessName = ""
@@ -113,6 +116,7 @@ fun CreateReservationPlaceDialog(
         totalCapacity = ""
         imageUri = null
         isOpen = true
+        upiId = initialUpiId.trim()
     }
 
     val displayedId = peekNextReservationBusinessId()
@@ -223,6 +227,12 @@ fun CreateReservationPlaceDialog(
             value = totalCapacity,
             onValueChange = { totalCapacity = it },
         )
+        FormSheetTextField(
+            label = "UPI ID *",
+            value = upiId,
+            onValueChange = { upiId = it },
+            placeholder = "e.g. merchant@okicici",
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -275,7 +285,7 @@ fun CreateReservationPlaceDialog(
         val canSave = businessName.isNotBlank() && owner.isNotBlank() &&
             contactNumber.isNotBlank() && address.isNotBlank() && city.isNotBlank() &&
             postalCode.isNotBlank() && openTime.isNotBlank() && closeTime.isNotBlank() &&
-            totalCapacity.isNotBlank()
+            totalCapacity.isNotBlank() && VendorPrefs.isValidVendorUpiFormat(upiId)
         FormSheetPrimaryButton(
             text = "Save",
             enabled = canSave,
@@ -301,6 +311,7 @@ fun CreateReservationPlaceDialog(
                         totalCapacity = totalCapacity.trim(),
                         imageUri = imageUri?.trim()?.takeIf { it.isNotBlank() },
                         isOpen = isOpen,
+                        upiId = upiId.trim(),
                     ),
                 )
                 onDismiss()

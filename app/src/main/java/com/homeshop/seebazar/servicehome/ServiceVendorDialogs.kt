@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.homeshop.seebazar.data.ShopDetails
+import com.homeshop.seebazar.data.VendorPrefs
 import com.homeshop.seebazar.ui.FormBottomSheetScaffold
 import com.homeshop.seebazar.ui.FormSheetDividerColor
 import com.homeshop.seebazar.ui.FormSheetPrimaryButton
@@ -66,6 +67,7 @@ fun CreateShopAccountDialog(
     initialAddress: String,
     initialCity: String,
     initialPostalCode: String,
+    initialUpiId: String = "",
     onDismiss: () -> Unit,
     onSubmit: (ShopDetails) -> Unit,
 ) {
@@ -76,10 +78,11 @@ fun CreateShopAccountDialog(
     var address by remember { mutableStateOf("") }
     var city by remember { mutableStateOf("") }
     var postalCode by remember { mutableStateOf("") }
+    var upiId by remember { mutableStateOf("") }
     var isOpen by remember { mutableStateOf(false) }
     var formError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(visible, suggestedVendorId, initialAddress, initialCity, initialPostalCode) {
+    LaunchedEffect(visible, suggestedVendorId, initialAddress, initialCity, initialPostalCode, initialUpiId) {
         if (!visible) return@LaunchedEffect
         formError = null
         shopName = ""
@@ -87,6 +90,7 @@ fun CreateShopAccountDialog(
         address = initialAddress
         city = initialCity
         postalCode = initialPostalCode
+        upiId = initialUpiId.trim()
         isOpen = false
     }
 
@@ -121,6 +125,12 @@ fun CreateShopAccountDialog(
             value = postalCode,
             onValueChange = { postalCode = it },
         )
+        FormSheetTextField(
+            label = "UPI ID *",
+            value = upiId,
+            onValueChange = { upiId = it },
+            placeholder = "e.g. merchant@okicici",
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -145,7 +155,8 @@ fun CreateShopAccountDialog(
         }
         val owner = defaultOwnerName.trim()
         val canSave = shopName.isNotBlank() && vendorId.isNotBlank() && owner.isNotBlank() &&
-            address.isNotBlank() && city.isNotBlank() && postalCode.isNotBlank()
+            address.isNotBlank() && city.isNotBlank() && postalCode.isNotBlank() &&
+            VendorPrefs.isValidVendorUpiFormat(upiId)
         FormSheetPrimaryButton(
             text = "Save shop",
             enabled = canSave,
@@ -164,6 +175,7 @@ fun CreateShopAccountDialog(
                         city = city.trim(),
                         postalCode = postalCode.trim(),
                         isOpen = isOpen,
+                        upiId = upiId.trim(),
                     ),
                 )
                 onDismiss()
@@ -180,6 +192,7 @@ fun CreateServiceProfileDialog(
     takeNextProfileId: () -> String,
     defaultProviderName: String,
     initialServiceArea: String,
+    initialUpiId: String = "",
     onDismiss: () -> Unit,
     onSubmit: (VendorServiceProfile) -> Unit,
 ) {
@@ -194,6 +207,7 @@ fun CreateServiceProfileDialog(
     var baseCharge by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<String?>(null) }
     var isAvailable by remember { mutableStateOf(true) }
+    var upiId by remember { mutableStateOf("") }
     var professionMenuExpanded by remember { mutableStateOf(false) }
     var chargesMenuExpanded by remember { mutableStateOf(false) }
     var formError by remember { mutableStateOf<String?>(null) }
@@ -205,7 +219,7 @@ fun CreateServiceProfileDialog(
         imageUri = uri?.toString()
     }
 
-    LaunchedEffect(visible, initialServiceArea) {
+    LaunchedEffect(visible, initialServiceArea, initialUpiId) {
         if (!visible) return@LaunchedEffect
         formError = null
         profession = ServiceProfession.Electrician
@@ -217,6 +231,7 @@ fun CreateServiceProfileDialog(
         baseCharge = ""
         imageUri = null
         isAvailable = true
+        upiId = initialUpiId.trim()
     }
 
     val displayedId = peekNextProfileId()
@@ -361,6 +376,12 @@ fun CreateServiceProfileDialog(
             value = baseCharge,
             onValueChange = { baseCharge = it },
         )
+        FormSheetTextField(
+            label = "UPI ID *",
+            value = upiId,
+            onValueChange = { upiId = it },
+            placeholder = "e.g. merchant@okicici",
+        )
         OutlinedButton(
             onClick = { imagePicker.launch("image/*") },
             modifier = Modifier.fillMaxWidth(),
@@ -395,7 +416,8 @@ fun CreateServiceProfileDialog(
         val provider = defaultProviderName.trim()
         val canSave = provider.isNotBlank() && experienceYears.isNotBlank() &&
             serviceArea.isNotBlank() && contactNumber.isNotBlank() &&
-            shortDescription.isNotBlank() && baseCharge.isNotBlank()
+            shortDescription.isNotBlank() && baseCharge.isNotBlank() &&
+            VendorPrefs.isValidVendorUpiFormat(upiId)
         FormSheetPrimaryButton(
             text = "Save profile",
             enabled = canSave,
@@ -419,6 +441,7 @@ fun CreateServiceProfileDialog(
                         baseCharge = baseCharge.trim(),
                         imageUri = imageUri?.trim()?.takeIf { it.isNotBlank() },
                         isAvailable = isAvailable,
+                        upiId = upiId.trim(),
                     ),
                 )
                 onDismiss()
