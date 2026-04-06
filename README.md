@@ -1,61 +1,71 @@
-# SeeBazar 🛍️
+🛍️ SeeBazar
+A smart local marketplace app that connects vendors and users for products, services, and bookings — all in one place.
 
-clone it : https://github.com/Sarim2022/seebazar-platform.git
+download latest Build : 
+clone repo : 
 
-database : firebase using for fast integration
+📱 About the App
+SeeBazar allows:
+* 🏪 Vendors to create shops and sell products
+* 🔧 Service providers (electricians, plumbers, etc.) to offer services
+* 🏨 Business owners to manage reservations (library, gym, hotel, etc.)
+* 👤 Users to explore nearby shops, services, and bookings from home
 
-SeeBazar is a **Jetpack Compose + Firebase** based multi-flow marketplace app where users can browse products, book service/reservation slots, place prepaid or postpaid orders, and vendors can manage products, bookings, and verify orders using QR scanning.
+🚀 Vendor Features
+* 💬 Real-time chat with users (products, services, bookings)
+* 🧾 Share order receipts with customers
+* 💰 Wallet to track earnings and transactions
+* 📷 QR code scanner to verify and complete orders
+* 📊 Dashboard with analytics and insights
+* 📦 Real-time order status management
+* 🏪 Create and manage:
+    * Shops
+    * Products
+    * Services
+    * Reservation bookings
 
-## ✨ Features
+👤 User Features
+* 🛒 Browse and order products from nearby shops
+* 📞 Call or chat with service providers
+* 📅 Book nearby places (gym, library, hotels, etc.)
+* 💬 Chat with vendors
+* 📦 Track order status in real-time
+* 🛍️ Add to cart functionality
+* 🧭 Clean and simple home screen UI
 
-### User Side
-- User registration & login
-- Browse vendor products and services
-- Add products to cart
-- Book reservation slots
-- Prepaid / Postpaid order flow
-- Pickup time selection
-- Order status screen
-- Unique QR code generated for each order
-- Live order status updates (`Pending` → `Done`)
+🔄 App Flow
+Vendor Side:
+1. Register & login
+2. Create shop
+3. Add products
+4. Add services
+5. Create reservation listings
+User Side:
+1. Register & login
+2. Explore nearby products/services
+3. Add products to cart
+4. Confirm order
+💳 Payment Options:
+* Prepaid (Test mode – no real payment)
+* Postpaid (Pay at shop)
+📦 Order Process:
+1. User selects pickup time
+2. QR code is generated
+3. User visits shop and shows QR
+4. Vendor scans QR using in-app scanner
+5. Order is verified
+6. Vendor completes order
+7. Receipt is generated and shared
 
-### Vendor Side
-- Vendor registration & login
-- Vendor dashboard / home screen
-- Manage products and services
-- View incoming user orders
-- View reservation bookings
-- Vendor order status screen
-- QR scanner to verify customer orders
-- Mark orders as completed
+🔐 Permissions
+* 📍 Location Access (to show nearby shops & services)
 
-## 🔥 Tech Stack
-- **Kotlin**
-- **Jetpack Compose**
-- **Firebase Authentication**
-- **Firebase Firestore**
-- **QR Code Generation / Scanning**
+🛠️ Built With
+* Android (Jetpack)
+* Kotlin
+* Modern Android Architecture
 
-## 📱 Order Flow
-1. User adds product or reservation to cart  
-2. Order is stored in Firestore  
-3. User confirms order (Prepaid / Postpaid)  
-4. Order appears in both **User** and **Vendor** order screens  
-5. QR code is generated for the order  
-6. Vendor scans QR at pickup  
-7. Vendor marks order as **Done**  
-8. Status updates on both sides  
-
-## 🚀 Future Improvements
-- Real UPI payment integration
-- Push notifications
-- Better analytics for vendors
-- Search & filter
-- Order history enhancements
-
-## 📌 Status
-This project is currently in active development and being built step-by-step.
-
----
-
-**Built with ❤️ using Jetpack Compose**
+✨ Future Improvements
+* Online payment integration
+* Notifications system
+* Advanced analytics for vendors
