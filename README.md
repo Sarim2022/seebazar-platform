@@ -2,7 +2,8 @@
 A smart local marketplace app that connects vendors and users for products, services, and bookings — all in one place.
 
 download latest Build : https://github.com/Sarim2022/seebazar-platform/releases/tag/v1.2/app-debug.apk
-* clone repo : https://github.com/Sarim2022/seebazar-platform.git
+
+clone repo : https://github.com/Sarim2022/seebazar-platform.git
 
 📱 About the App
 SeeBazar allows:
