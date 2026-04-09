@@ -19,7 +19,7 @@ object UserFirestore {
     const val FIELD_PRODUCTS = "products"
     const val FIELD_SERVICE_POSTS = "servicePosts"
     const val FIELD_RESERVATION_SLOTS = "reservationSlots"
-    /** Vendor wallet ledger entries; stored as an array (initially empty). */
+    /** Vendor wallet numeric balance. */
     const val FIELD_WALLET_VENDOR = "WalletVendor"
 
     /** Canonical UPI for prepaid payouts; mirrors the active shop/service/reservation profile. */

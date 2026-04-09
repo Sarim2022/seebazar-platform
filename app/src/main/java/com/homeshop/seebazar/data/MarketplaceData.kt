@@ -41,8 +41,8 @@ class MarketplaceData {
 
     val servicePostList: SnapshotStateList<VendorServicePost> = mutableStateListOf()
 
-    /** Vendor wallet rows synced with Firestore [UserFirestore.FIELD_WALLET_VENDOR]. */
-    val walletVendorList: SnapshotStateList<String> = mutableStateListOf()
+    /** Vendor wallet numeric balance synced with Firestore [UserFirestore.FIELD_WALLET_VENDOR]. */
+    var walletVendor: Long by mutableStateOf(0L)
 
     /** Products added from the user Product tab; reservations added via "Book it". */
     val cartList: SnapshotStateList<KartEntry> = mutableStateListOf()
@@ -114,7 +114,7 @@ class MarketplaceData {
         reservationBrowseList.clear()
         serviceProfile = null
         servicePostList.clear()
-        walletVendorList.clear()
+        walletVendor = 0L
         cartList.clear()
         myOrderList.clear()
         nextProductId = DEFAULT_NEXT_PRODUCT_ID

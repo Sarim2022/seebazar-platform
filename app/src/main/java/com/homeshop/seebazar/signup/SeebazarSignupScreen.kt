@@ -149,7 +149,7 @@ fun SeebazarSignupScreen(
                     profile["isShopprofile"] = false
                     profile["isServiceprofile"] = false
                     profile["isReservation"] = false
-                    profile[UserFirestore.FIELD_WALLET_VENDOR] = emptyList<String>()
+                    profile[UserFirestore.FIELD_WALLET_VENDOR] = 0
                     profile[UserFirestore.FIELD_VENDOR_ORDERS] = emptyList<Map<String, Any>>()
                 }
                 UserFirestore.usersCollection().document(uid).set(profile)

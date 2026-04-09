@@ -16,12 +16,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,15 +57,15 @@ fun UserHomeTopBar(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = ellipsizeLocationHeadline(locationHeadline, blankFallback = "Location"),
-                        fontSize = 20.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
                         modifier = Modifier.weight(1f, fill = false),
@@ -73,15 +73,15 @@ fun UserHomeTopBar(
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.size(22.dp),
                     )
                 }
                 Text(
                     text = locationSubtitle.ifBlank { "Tap to add location" },
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -90,18 +90,17 @@ fun UserHomeTopBar(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(40.dp)
                         .clickable { onProfileClick() },
                     shape = CircleShape,
-                    color = Color(0xFFFDEFD5),
-                    border = BorderStroke(1.dp, Color(0xFF0090FF)),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = profileInitial.ifBlank { "?" }.take(1),
-                            color = Color(0xFF2196F3),
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            fontSize = 18.sp,
                         )
                     }
                 }

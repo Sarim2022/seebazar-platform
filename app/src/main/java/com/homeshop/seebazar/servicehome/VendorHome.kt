@@ -100,6 +100,7 @@ import com.homeshop.seebazar.servicehome.smallcompose.VendorSettingsMenuIds
 import com.homeshop.seebazar.servicehome.smallcompose.VendorSettingsScreen
 import com.homeshop.seebazar.ui.LogoutConfirmationDialog
 import com.homeshop.seebazar.common.PaymentReceiptScreen
+import kotlinx.coroutines.delay
 
 private enum class VendorOnboardingTarget {
     Shop,
@@ -210,6 +211,15 @@ fun VendorHome(
                     Manifest.permission.ACCESS_COARSE_LOCATION,
                 ),
             )
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(600)
+        val hasLoc = VendorLocationPrefs.city(context).isNotBlank() ||
+            VendorLocationPrefs.displaySubtitle(context).isNotBlank()
+        if (!hasLoc) {
+            requestVendorLocation()
         }
     }
 
@@ -455,10 +465,7 @@ fun VendorHome(
                     PaymentReceiptScreen(
                         order = order,
                         onNavigateBack = {
-                            // Pop first: clearing the order while still on this route recomposes with
-                            // order == null and LaunchedEffect pops again → double pop → blank Orders tab.
-                            ordersNavController.popBackStack()
-                            receiptNavViewModel.clearPendingReceiptOrder()
+                            ordersNavController.popBackStack(VendorOrdersRoutes.List, inclusive = false)
                         },
                     )
                 }
@@ -777,8 +784,8 @@ fun OpenShopUI(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1CA1FA))
-            .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 12.dp),
+            .background(Color.White)
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Add New Product button (takes most space)
@@ -786,17 +793,18 @@ fun OpenShopUI(
             onClick = onAddPost,
             modifier = Modifier
                 .weight(1f)
-                .height(40.dp),
-            border = BorderStroke(1.dp, borderColor),
+                .height(44.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
             colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color(0xFFFFFFFF),
-                contentColor = Color.Black
+                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                contentColor = MaterialTheme.colorScheme.primary
             ),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(22.dp)
         ) {
             Text(
                 text = "Add New Product",
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
             )
         }
 

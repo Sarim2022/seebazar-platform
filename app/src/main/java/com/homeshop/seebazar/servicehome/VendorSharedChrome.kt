@@ -15,12 +15,12 @@ import androidx.compose.ui.unit.dp
 
 /** Matches vendor home: [HomeTopBar] brand blue and light screen tint. */
 object VendorUi {
-    val BrandBlue = Color(0xFF155AC1)
+    val BrandBlue = Color(0xFF0EA5E9)
     /** Same as [com.homeshop.seebazar.servicehome.smallcompose.HomeItemListView] screen tint. */
-    val ScreenBg = Color(0xFFF0F6FF)
+    val ScreenBg = Color(0xFFF8FAFC)
     val TextDark = Color(0xFF0F172A)
     val TextMuted = Color(0xFF64748B)
-    val CardStroke = Color(0xFFE3EEF9)
+    val CardStroke = Color(0xFFF1F5F9)
     val TopBarBg = Color.White
 }
 

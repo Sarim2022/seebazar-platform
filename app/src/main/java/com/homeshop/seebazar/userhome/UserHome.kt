@@ -411,37 +411,8 @@ private fun UserHomeMainContent(
         return
     }
 
-    // Six stops; last is Color.White so the fade matches tab + panel backgrounds below.
-    val productGradient = listOf(
-        Color(0xFF2781F5),
-        Color(0xFF7CB2F8),
-        Color(0xFF9FC4FA),
-        Color(0xFFC8E6FD),
-        Color(0xFFE3F2FD),
-        Color.White,
-    )
-    val serviceGradient = listOf(
-        Color(0xFF16A34A),
-        Color(0xFF4ADE80),
-        Color(0xFF86EFAC),
-        Color(0xFFBBF7D0),
-        Color(0xFFDCFCE7),
-        Color.White,
-    )
-    val reservationGradient = listOf(
-        Color(0xFFEAB308),
-        Color(0xFFFACC15),
-        Color(0xFFFDE047),
-        Color(0xFFFEF08A),
-        Color(0xFFFEF9C3),
-        Color.White,
-    )
-    val gradientColors = animatedInsightGradientColors(
-        selectedInsightIndex = selectedInsightIndex,
-        product = productGradient,
-        service = serviceGradient,
-        reservation = reservationGradient,
-    )
+// No longer using animated heavy gradients for the modern clean theme.
+    // We stick to a solid crisp background.
 
     // Single scroll: header (gradient + top bar + search + banner) moves with the insight tabs
     // and list — not fixed while only "Available …" scrolls.
@@ -456,7 +427,7 @@ private fun UserHomeMainContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(brush = Brush.verticalGradient(colors = gradientColors)),
+                    .background(Color.White),
             ) {
                 UserHomeTopBar(
                     locationHeadline = userLocHeadline,
@@ -552,8 +523,8 @@ private fun UserSearchBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val border = Color(0xFFE8ECF4)
-    val bg = Color(0xFFF7F8F9)
+    val border = Color(0xFFF1F5F9)
+    val bg = Color.White
 
     // 1. Define your list of items
     val searchItems = listOf("Milk", "Electrician", "Drink", "Wheat","Fruits","Electrician","Medicine","Library")
@@ -663,7 +634,7 @@ private fun BannerSlider() {
                         .size(if (active) 8.dp else 6.dp)
                         .clip(CircleShape)
                         .background(
-                            if (active) Color(0xFF155AC1) else Color(0xFFCBD5E1),
+                            if (active) MaterialTheme.colorScheme.primary else Color(0xFFE2E8F0),
                         ),
                 )
             }

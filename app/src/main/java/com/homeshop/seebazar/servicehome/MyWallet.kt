@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.HomeRepairService
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Store
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,6 +39,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.google.firebase.auth.FirebaseAuth
+import com.homeshop.seebazar.data.UserFirestore
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -60,6 +67,24 @@ private val HeroGradientBottom = Color(0xFF56CCF2)
 @Composable
 fun MyWalletScreen(modifier: Modifier = Modifier) {
     val recentTransactions = remember { emptyList<TransactionData>() }
+    var walletBalance by remember { mutableStateOf(0L) }
+    val uid = FirebaseAuth.getInstance().currentUser?.uid
+
+    DisposableEffect(uid) {
+        if (uid == null) return@DisposableEffect onDispose {}
+        val reg = UserFirestore.usersCollection().document(uid)
+            .addSnapshotListener { snap, _ ->
+                if (snap != null && snap.exists()) {
+                    val wRaw = snap.get(UserFirestore.FIELD_WALLET_VENDOR)
+                    walletBalance = when (wRaw) {
+                        is Number -> wRaw.toLong()
+                        is String -> wRaw.toLongOrNull() ?: 0L
+                        else -> 0L
+                    }
+                }
+            }
+        onDispose { reg.remove() }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -83,14 +108,14 @@ fun MyWalletScreen(modifier: Modifier = Modifier) {
         ) {
             item {
                 WalletHeroBalanceCard(
-                    balanceText = "₹ 0.0",
+                    balanceText = "₹ $walletBalance",
                     onWithdrawClick = { },
                     onViewBreakdownClick = { },
                 )
             }
             item {
                 WalletQuickActionRow(
-                    onSettingsClick = { },
+                    onProductsClick = { },
                     onServicesClick = { },
                     onBookingsClick = { },
                 )
@@ -213,7 +238,7 @@ private fun WalletHeroBalanceCard(
 
 @Composable
 private fun WalletQuickActionRow(
-    onSettingsClick: () -> Unit,
+    onProductsClick: () -> Unit,
     onServicesClick: () -> Unit,
     onBookingsClick: () -> Unit,
 ) {
@@ -223,9 +248,9 @@ private fun WalletQuickActionRow(
         verticalAlignment = Alignment.Top,
     ) {
         WalletQuickActionItem(
-            label = "Settings",
-            icon = Icons.Outlined.Settings,
-            onClick = onSettingsClick,
+            label = "Products",
+            icon = Icons.Outlined.Store,
+            onClick = onProductsClick,
         )
         WalletQuickActionItem(
             label = "Services",

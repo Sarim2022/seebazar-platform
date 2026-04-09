@@ -4,6 +4,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Transaction
 
 /**
@@ -29,6 +30,7 @@ object OrderFirestore {
     private const val FIELD_ORDER_STATUS = "orderStatus"
     private const val FIELD_PLACED_AT = "placedAtMillis"
     private const val FIELD_QR = "qrPayload"
+    private const val FIELD_PRICE = "price"
 
     fun ordersCollection() = FirebaseFirestore.getInstance().collection(COLLECTION_ORDERS)
 
@@ -58,6 +60,7 @@ object OrderFirestore {
         FIELD_ORDER_STATUS to order.orderStatus,
         FIELD_PLACED_AT to order.placedAtMillis,
         FIELD_QR to order.qrPayload,
+        FIELD_PRICE to order.price,
     )
 
     fun orderFromSnapshot(snap: DocumentSnapshot): UserPlacedOrder? {
@@ -96,6 +99,7 @@ object OrderFirestore {
             buyerName = m[FIELD_BUYER_NAME]?.toString().orEmpty(),
             buyerEmail = m[FIELD_BUYER_EMAIL]?.toString().orEmpty(),
             vendorUid = m[FIELD_VENDOR_UID]?.toString().orEmpty(),
+            price = (m[FIELD_PRICE] as? Number)?.toDouble() ?: m[FIELD_PRICE]?.toString()?.toDoubleOrNull() ?: 0.0,
         )
     }
 
@@ -247,6 +251,12 @@ object OrderFirestore {
                 orderId,
             )
             tx.update(vendorRef, UserFirestore.FIELD_VENDOR_ORDER_HISTORY, mergedVendorHist)
+
+            // Wallet logic: Atomically increment by product price.
+            val productPrice = doneOrder.price.toLong() // User specifically asked for INTEGER
+            if (productPrice > 0) {
+                tx.update(vendorRef, UserFirestore.FIELD_WALLET_VENDOR, FieldValue.increment(productPrice))
+            }
         }
     }
 

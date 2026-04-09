@@ -170,10 +170,10 @@ fun UserKartScreen(
                     Button(
                         onClick = { pickupSheetLine = line },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        Text("Order it")
+                        Text("Order Now", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -206,10 +206,10 @@ fun UserKartScreen(
                     Button(
                         onClick = { pickupSheetLine = line },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = VendorUi.BrandBlue),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        Text("Order it")
+                        Text("Order Now", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -470,7 +470,8 @@ private fun KartCard(
             .fillMaxWidth()
             .padding(vertical = 6.dp),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

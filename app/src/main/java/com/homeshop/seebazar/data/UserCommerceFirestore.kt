@@ -97,6 +97,7 @@ object UserCommerceFirestore {
                     buyerName = buyerName.trim(),
                     buyerEmail = buyerEmail.trim(),
                     vendorUid = vendorUid,
+                    price = p.mrpPrice.toDoubleOrNull() ?: 0.0,
                 )
             }
             is KartEntry.BookingPending -> {
@@ -118,6 +119,7 @@ object UserCommerceFirestore {
                     buyerName = buyerName.trim(),
                     buyerEmail = buyerEmail.trim(),
                     vendorUid = vendorUid,
+                    price = r.price.toDoubleOrNull() ?: 0.0,
                 )
             }
         }
@@ -157,6 +159,7 @@ object UserCommerceFirestore {
         "buyerName" to o.buyerName,
         "buyerEmail" to o.buyerEmail,
         "vendorUid" to o.vendorUid,
+        "price" to o.price,
     )
 
     private fun placedOrderFromMap(m: Map<*, *>): UserPlacedOrder? {
@@ -186,6 +189,7 @@ object UserCommerceFirestore {
             buyerName = m["buyerName"]?.toString().orEmpty(),
             buyerEmail = m["buyerEmail"]?.toString().orEmpty(),
             vendorUid = m["vendorUid"]?.toString().orEmpty(),
+            price = (m["price"] as? Number)?.toDouble() ?: m["price"]?.toString()?.toDoubleOrNull() ?: 0.0,
         )
     }
 

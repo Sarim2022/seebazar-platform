@@ -16,12 +16,14 @@ object ChatUi {
     val TextTertiary = Color(0xFF9CA3AF)
     val Brand = VendorUi.BrandBlue
     val BrandSoft = Color(0xFFE8F0FE)
-    val BubbleMine = Brand
+    val BubbleMineGradientStart = Color(0xFF007BFF) // Electric blue
+    val BubbleMineGradientEnd = Color(0xFF00D2D3) // Deep cyan
     val BubbleMineText = Color.White
-    val BubbleOther = Color.White
+    val BubbleOther = Color(0xFFFAFAFA) // Off-white/light-gray
+    val BubbleOtherText = Color(0xFF333333) // Charcoal text
     val BubbleOtherStroke = Color(0xFFE5E7EB)
-    val InputSurface = Color(0xFFF9FAFB)
-    val SendFab = Brand
+    val InputSurface = Color(0xFFFFFFFF)
+    val SendFab = Color(0xFF007BFF)
     val EmptyIconBg = Color(0xFFF3F4F6)
     val SearchPlaceholder = TextSecondary
 }

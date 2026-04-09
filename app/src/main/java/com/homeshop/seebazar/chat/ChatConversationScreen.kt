@@ -2,7 +2,9 @@ package com.homeshop.seebazar.chat
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -46,10 +48,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.homeshop.seebazar.data.ChatFirestore
 import com.homeshop.seebazar.data.ChatMessage
 import java.text.SimpleDateFormat
@@ -78,37 +83,58 @@ fun ChatConversationScreen(
     val bubbleShapeMine = RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)
     val bubbleShapeTheirs = RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp)
 
+    val primaryName = remember(title) { title.substringBefore(" · ").substringBefore(" - ") }
+    val secondaryName = remember(title) {
+        when {
+            title.contains(" · ") -> title.substringAfter(" · ")
+            title.contains(" - ") -> title.substringAfter(" - ")
+            else -> "Active"
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = ChatUi.ScreenBg,
         topBar = {
-            Column {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = ChatUi.TextPrimary,
-                            maxLines = 1,
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = ChatUi.Brand,
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = ChatUi.Surface,
-                        titleContentColor = ChatUi.TextPrimary,
-                        navigationIconContentColor = ChatUi.Brand,
-                    ),
-                )
-                HorizontalDivider(thickness = 1.dp, color = ChatUi.Hairline)
+            Surface(
+                color = ChatUi.Surface.copy(alpha = 0.85f),
+                shadowElevation = 0.dp,
+            ) {
+                Column {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = primaryName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ChatUi.TextPrimary,
+                                    maxLines = 1,
+                                )
+                                Text(
+                                    text = secondaryName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Normal,
+                                    color = ChatUi.TextSecondary,
+                                    maxLines = 1,
+                                )
+                            }
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = ChatUi.Brand,
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                            containerColor = Color.Transparent,
+                        ),
+                    )
+                    HorizontalDivider(thickness = 1.dp, color = ChatUi.Hairline)
+                }
             }
         },
     ) { padding ->
@@ -126,35 +152,32 @@ fun ChatConversationScreen(
             ) {
                 items(messages, key = { it.id }) { msg ->
                     val mine = msg.fromUid == myUid
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
+                        horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
                     ) {
                         if (mine) {
                             Column(
                                 modifier = Modifier
                                     .widthIn(max = 300.dp)
                                     .clip(bubbleShapeMine)
-                                    .background(ChatUi.BubbleMine)
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    .background(
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(
+                                                ChatUi.BubbleMineGradientStart,
+                                                ChatUi.BubbleMineGradientEnd,
+                                            )
+                                        )
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
                             ) {
                                 Text(
                                     text = msg.text,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = ChatUi.BubbleMineText,
-                                    lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
+                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 22.sp,
                                 )
-                                if (msg.createdAtMillis > 0L) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = timeFmt.format(Date(msg.createdAtMillis)),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Medium,
-                                        color = ChatUi.BubbleMineText.copy(alpha = 0.85f),
-                                        textAlign = TextAlign.End,
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                }
                             }
                         } else {
                             Surface(
@@ -165,68 +188,114 @@ fun ChatConversationScreen(
                                 shadowElevation = 0.dp,
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 ) {
                                     Text(
                                         text = msg.text,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = ChatUi.TextPrimary,
-                                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
+                                        color = ChatUi.BubbleOtherText,
+                                        fontWeight = FontWeight.Medium,
+                                        lineHeight = 22.sp,
                                     )
-                                    if (msg.createdAtMillis > 0L) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = timeFmt.format(Date(msg.createdAtMillis)),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Medium,
-                                            color = ChatUi.TextTertiary,
-                                            textAlign = TextAlign.Start,
-                                            modifier = Modifier.fillMaxWidth(),
-                                        )
-                                    }
                                 }
+                            }
+                        }
+                        if (msg.createdAtMillis > 0L) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = timeFmt.format(Date(msg.createdAtMillis)),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Normal,
+                                color = ChatUi.TextTertiary,
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            if (messages.isEmpty()) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Text(
+                            text = "Start a conversation",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ChatUi.TextSecondary,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        listOf(
+                            "Is the service available?",
+                            "What are your charges?",
+                            "Can we schedule a time?"
+                        ).forEach { quickMsg ->
+                            Surface(
+                                shape = RoundedCornerShape(percent = 50),
+                                color = ChatUi.BrandSoft,
+                                modifier = Modifier
+                                    .padding(vertical = 4.dp)
+                                    .clickable { draft = quickMsg }
+                            ) {
+                                Text(
+                                    text = quickMsg,
+                                    color = ChatUi.Brand,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                )
                             }
                         }
                     }
                 }
             }
-            Surface(
-                color = ChatUi.Surface,
-                tonalElevation = 0.dp,
-                shadowElevation = 4.dp,
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .imePadding()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedTextField(
-                        value = draft,
-                        onValueChange = { draft = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = {
-                            Text(
-                                "Type a message…",
-                                color = ChatUi.TextTertiary,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        },
-                        maxLines = 4,
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .shadow(8.dp, RoundedCornerShape(26.dp), spotColor = Color.Black.copy(alpha = 0.05f)),
                         shape = RoundedCornerShape(26.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = ChatUi.InputSurface,
-                            unfocusedContainerColor = ChatUi.InputSurface,
-                            disabledContainerColor = ChatUi.InputSurface,
-                            focusedBorderColor = ChatUi.BorderSubtle,
-                            unfocusedBorderColor = ChatUi.BorderSubtle,
-                            cursorColor = ChatUi.Brand,
-                            focusedTextColor = ChatUi.TextPrimary,
-                            unfocusedTextColor = ChatUi.TextPrimary,
-                        ),
-                    )
+                        color = ChatUi.InputSurface,
+                    ) {
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = {
+                                Text(
+                                    "Type a message…",
+                                    color = ChatUi.TextTertiary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            },
+                            maxLines = 4,
+                            shape = RoundedCornerShape(26.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                cursorColor = ChatUi.Brand,
+                                focusedTextColor = ChatUi.TextPrimary,
+                                unfocusedTextColor = ChatUi.TextPrimary,
+                            ),
+                        )
+                    }
                     Spacer(modifier = Modifier.width(10.dp))
                     val canSend = !sending && draft.isNotBlank()
                     FilledIconButton(
@@ -241,7 +310,9 @@ fun ChatConversationScreen(
                             }
                         },
                         enabled = canSend,
-                        modifier = Modifier.size(52.dp),
+                        modifier = Modifier
+                            .size(52.dp)
+                            .shadow(8.dp, CircleShape, spotColor = ChatUi.SendFab.copy(alpha = 0.3f)),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = ChatUi.SendFab,

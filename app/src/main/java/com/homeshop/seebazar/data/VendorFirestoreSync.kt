@@ -210,7 +210,7 @@ object VendorFirestoreSync {
         updates[UserFirestore.FIELD_PRODUCTS] = FieldValue.delete()
         updates[UserFirestore.FIELD_SERVICE_POSTS] = marketplace.servicePostList.map(::servicePostToMap)
         updates[UserFirestore.FIELD_RESERVATION_SLOTS] = marketplace.reservationSlotList.map(::reservationSlotToMap)
-        updates[UserFirestore.FIELD_WALLET_VENDOR] = marketplace.walletVendorList.toList()
+
         UserFirestore.usersCollection().document(uid).update(updates)
             .addOnSuccessListener {
                 VendorPrefs.persistMarketplaceOnly(context, uid, marketplace)
@@ -243,9 +243,7 @@ object VendorFirestoreSync {
         o.put(UserFirestore.FIELD_RESERVATION_SLOTS, JSONArray().apply {
             for (s in marketplace.reservationSlotList) put(reservationSlotToJson(s))
         })
-        o.put(UserFirestore.FIELD_WALLET_VENDOR, JSONArray().apply {
-            for (w in marketplace.walletVendorList) put(w)
-        })
+        o.put(UserFirestore.FIELD_WALLET_VENDOR, marketplace.walletVendor)
         return o
     }
 
@@ -309,9 +307,11 @@ object VendorFirestoreSync {
                     ?.let { marketplace.reservationSlotList.add(it) }
             }
         }
-        marketplace.walletVendorList.clear()
-        (data[UserFirestore.FIELD_WALLET_VENDOR] as? List<*>)?.forEach { item ->
-            item?.toString()?.takeIf { it.isNotBlank() }?.let { marketplace.walletVendorList.add(it) }
+        val wRaw = data[UserFirestore.FIELD_WALLET_VENDOR]
+        marketplace.walletVendor = when (wRaw) {
+            is Number -> wRaw.toLong()
+            is String -> wRaw.toLongOrNull() ?: 0L
+            else -> 0L
         }
         marketplace.recomputeSequencesFromLoadedData()
         return true

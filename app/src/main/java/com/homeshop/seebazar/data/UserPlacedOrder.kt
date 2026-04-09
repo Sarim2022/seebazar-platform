@@ -28,4 +28,6 @@ data class UserPlacedOrder(
     val buyerEmail: String = "",
     /** Vendor Firebase uid (shop owner) for routing and scan verification. */
     val vendorUid: String = "",
+    /** Numeric product/booking price for wallet additions. */
+    val price: Double = 0.0,
 )

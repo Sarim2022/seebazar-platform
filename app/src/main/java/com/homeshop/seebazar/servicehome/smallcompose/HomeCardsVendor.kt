@@ -24,8 +24,8 @@ fun HomeCardsVendor(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
-            .background(Color(0xFF1CA1FA))
-            .padding(start = 12.dp,end=12.dp, top = 6.dp, bottom = 16.dp)
+            .background(Color.White)
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -57,6 +57,7 @@ import com.homeshop.seebazar.ui.rememberOrderQrBitmap
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.homeshop.seebazar.ui.common.EmptyStateView
 
 private val ScreenBg = Color(0xFFF8FAFC)
 
@@ -149,18 +150,11 @@ fun UserOrderStatusScreen(
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
             )
             if (displayOrders.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "No orders yet — place one from My Kart.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = VendorUi.TextMuted,
-                    )
-                }
+                EmptyStateView(
+                    title = "No orders yet",
+                    subtitle = "Place one from My Kart.",
+                    modifier = Modifier.weight(1f)
+                )
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -263,7 +257,8 @@ private fun UserOrderCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
